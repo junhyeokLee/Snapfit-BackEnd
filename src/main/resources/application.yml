@@ -1,0 +1,40 @@
+spring:
+  profiles:
+    default: dev
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+    show-sql: true
+
+server:
+  port: 8080
+
+---
+# DEV 프로필
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/snapfit_dev?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME:snapfit_dev}
+    password: ${DB_PASSWORD:dev_password_here}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+---
+# PROD 프로필
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/snapfit_prod?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME:snapfit_prod}
+    password: ${DB_PASSWORD:prod_password_here}
+    driver-class-name: com.mysql.cj.jdbc.Driver
