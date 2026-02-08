@@ -16,6 +16,8 @@ public class AlbumPageResponse {
     private Long albumId;
     private int pageNumber;
     private String layersJson;
+    private String originalUrl;
+    private String previewUrl;
     private String imageUrl;
     private String thumbnailUrl;
 }

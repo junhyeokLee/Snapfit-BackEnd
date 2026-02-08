@@ -2,6 +2,7 @@
 package com.snapfit.snapfitbackend.controller;
 
 import com.snapfit.snapfitbackend.domain.album.dto.response.AlbumDetailResponse;
+import com.snapfit.snapfitbackend.domain.album.dto.response.AlbumListResponse;
 import com.snapfit.snapfitbackend.domain.album.entity.AlbumEntity;
 import com.snapfit.snapfitbackend.domain.album.entity.AlbumPageEntity;
 import com.snapfit.snapfitbackend.domain.album.dto.response.AlbumPageResponse;
@@ -37,43 +38,67 @@ public class AlbumController {
      */
     @Operation(summary = "앨범 생성")
     @PostMapping
-    public ResponseEntity<CreateAlbumResponse> createAlbum(
-            @RequestBody CreateAlbumRequest request
-    ) {
-        // 서비스 호출: title 제거, 레이어 JSON/URL 기반으로 생성
+    public ResponseEntity<CreateAlbumResponse> createAlbum(@RequestBody CreateAlbumRequest request) {
         AlbumEntity album = albumService.createAlbum(
+                request.getUserId(),
                 request.getRatio(),
                 request.getCoverLayersJson(),
+                request.getCoverTheme(),
+                request.getCoverOriginalUrl(),
+                request.getCoverPreviewUrl(),
                 request.getCoverImageUrl(),
                 request.getCoverThumbnailUrl()
         );
 
-        // 엔티티 -> 응답 DTO 변환
         CreateAlbumResponse response = CreateAlbumResponse.builder()
                 .albumId(album.getId())
                 .ratio(album.getRatio())
                 .coverLayersJson(album.getCoverLayersJson())
+                .coverTheme(album.getCoverTheme())
+                .coverOriginalUrl(album.getCoverOriginalUrl())
+                .coverPreviewUrl(album.getCoverPreviewUrl())
                 .coverImageUrl(album.getCoverImageUrl())
                 .coverThumbnailUrl(album.getCoverThumbnailUrl())
                 .createdAt(album.getCreatedAt())
                 .updatedAt(album.getUpdatedAt())
                 .build();
 
-        // 생성이므로 201 코드 사용
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
-     * 앨범의 페이지 리스트 조회
+     * 내가 저장한 앨범 목록 조회 (userId 필터)
+     */
+    @Operation(summary = "내 앨범 목록 조회")
+    @GetMapping
+    public ResponseEntity<List<AlbumListResponse>> getMyAlbums(
+            @RequestParam String userId
+    ) {
+        List<AlbumEntity> albums = albumService.getAlbumsByUserId(userId);
+        List<AlbumListResponse> response = albums.stream()
+                .map(a -> AlbumListResponse.builder()
+                        .albumId(a.getId())
+                        .ratio(a.getRatio())
+                        .coverThumbnailUrl(a.getCoverThumbnailUrl())
+                        .coverImageUrl(a.getCoverImageUrl())
+                        .totalPages(a.getTotalPages())
+                        .createdAt(a.getCreatedAt())
+                        .updatedAt(a.getUpdatedAt())
+                        .build())
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 앨범의 페이지 리스트 조회 (소유자만)
      */
     @Operation(summary = "앨범 페이지 목록 조회")
     @GetMapping("/{albumId}/pages")
     public ResponseEntity<List<AlbumPageResponse>> getAlbumPages(
-            @PathVariable Long albumId
+            @PathVariable Long albumId,
+            @RequestParam String userId
     ) {
-        List<AlbumPageEntity> pages = albumService.getAlbumPages(albumId);
+        List<AlbumPageEntity> pages = albumService.getAlbumPages(albumId, userId);
 
         List<AlbumPageResponse> response = pages.stream()
                 .map(page -> AlbumPageResponse.builder()
@@ -81,6 +106,8 @@ public class AlbumController {
                         .albumId(page.getAlbum().getId())
                         .pageNumber(page.getPageNumber())
                         .layersJson(page.getLayersJson())
+                        .originalUrl(page.getOriginalUrl())
+                        .previewUrl(page.getPreviewUrl())
                         .imageUrl(page.getImageUrl())
                         .thumbnailUrl(page.getThumbnailUrl())
                         .build()
@@ -91,20 +118,24 @@ public class AlbumController {
     }
 
     /**
-     * 특정 페이지 저장/업데이트
+     * 특정 페이지 저장/업데이트 (소유자만)
      */
     @Operation(summary = "앨범 페이지 저장(업서트)")
     @PostMapping("/{albumId}/pages")
     public ResponseEntity<AlbumPageResponse> savePage(
             @PathVariable Long albumId,
+            @RequestParam String userId,
             @RequestBody SaveAlbumPageRequest request
     ) {
         AlbumPageEntity page = albumService.savePage(
                 albumId,
                 request.getPageNumber(),
                 request.getLayersJson(),
-                request.getImageUrl(),
-                request.getThumbnailUrl()
+                (request.getPreviewUrl() != null && !request.getPreviewUrl().isBlank())
+                        ? request.getPreviewUrl()
+                        : request.getImageUrl(),
+                request.getThumbnailUrl(),
+                userId
         );
 
         AlbumPageResponse response = AlbumPageResponse.builder()
@@ -112,6 +143,8 @@ public class AlbumController {
                 .albumId(page.getAlbum().getId())
                 .pageNumber(page.getPageNumber())
                 .layersJson(page.getLayersJson())
+                .originalUrl(page.getOriginalUrl())
+                .previewUrl(page.getPreviewUrl())
                 .imageUrl(page.getImageUrl())
                 .thumbnailUrl(page.getThumbnailUrl())
                 .build();
@@ -120,23 +153,74 @@ public class AlbumController {
     }
 
     /**
-     * 앨범 상세 조회 (앨범 + 페이지 목록)
+     * 앨범 수정 (소유자만)
+     * - Body: CreateAlbumRequest와 동일 (ratio, coverLayersJson, coverImageUrl, coverThumbnailUrl, userId)
+     */
+    @Operation(summary = "앨범 수정")
+    @PutMapping("/{albumId}")
+    public ResponseEntity<CreateAlbumResponse> updateAlbum(
+            @PathVariable Long albumId,
+            @RequestParam String userId,
+            @RequestBody CreateAlbumRequest request
+    ) {
+        AlbumEntity album = albumService.updateAlbum(
+                albumId,
+                userId,
+                request.getRatio(),
+                request.getCoverLayersJson(),
+                request.getCoverTheme(),
+                request.getCoverOriginalUrl(),
+                request.getCoverPreviewUrl(),
+                request.getCoverImageUrl(),
+                request.getCoverThumbnailUrl()
+        );
+        CreateAlbumResponse response = CreateAlbumResponse.builder()
+                .albumId(album.getId())
+                .ratio(album.getRatio())
+                .coverLayersJson(album.getCoverLayersJson())
+                .coverTheme(album.getCoverTheme())
+                .coverOriginalUrl(album.getCoverOriginalUrl())
+                .coverPreviewUrl(album.getCoverPreviewUrl())
+                .coverImageUrl(album.getCoverImageUrl())
+                .coverThumbnailUrl(album.getCoverThumbnailUrl())
+                .createdAt(album.getCreatedAt())
+                .updatedAt(album.getUpdatedAt())
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 앨범 삭제 (소유자만)
+     */
+    @Operation(summary = "앨범 삭제")
+    @DeleteMapping("/{albumId}")
+    public ResponseEntity<Void> deleteAlbum(
+            @PathVariable Long albumId,
+            @RequestParam String userId
+    ) {
+        albumService.deleteAlbum(albumId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 앨범 상세 조회 (앨범 + 페이지 목록, 소유자만)
      */
     @Operation(summary = "앨범 상세 조회")
     @GetMapping("/{albumId}")
     public ResponseEntity<AlbumDetailResponse> getAlbumDetail(
-            @PathVariable Long albumId
+            @PathVariable Long albumId,
+            @RequestParam String userId
     ) {
-        // 1) 앨범, 페이지 조회
-        AlbumEntity album = albumService.getAlbum(albumId);
-        List<AlbumPageEntity> pages = albumService.getAlbumPages(albumId);
+        // 1) 앨범, 페이지 조회 (소유자 검증 포함)
+        AlbumEntity album = albumService.getAlbum(albumId, userId);
+        List<AlbumPageEntity> pages = albumService.getAlbumPages(albumId, userId);
 
         // 2) 페이지 요약 DTO로 매핑
         List<AlbumDetailResponse.AlbumPageSummaryResponse> pageResponses = pages.stream()
                 .map(page -> AlbumDetailResponse.AlbumPageSummaryResponse.builder()
                         .pageId(page.getId())
                         .pageNumber(page.getPageNumber())
-                        .imageUrl(page.getImageUrl())
+                        .imageUrl(page.getPreviewUrl() != null ? page.getPreviewUrl() : page.getImageUrl())
                         .thumbnailUrl(page.getThumbnailUrl())
                         .build()
                 )
@@ -147,6 +231,9 @@ public class AlbumController {
                 .albumId(album.getId())
                 .ratio(album.getRatio())
                 .coverLayersJson(album.getCoverLayersJson())
+                .coverTheme(album.getCoverTheme())
+                .coverOriginalUrl(album.getCoverOriginalUrl())
+                .coverPreviewUrl(album.getCoverPreviewUrl())
                 .coverImageUrl(album.getCoverImageUrl())
                 .albumThumbnailUrl(album.getCoverThumbnailUrl())
                 .totalPages(album.getTotalPages())

@@ -21,6 +21,12 @@ public class SaveAlbumPageRequest {
 
     private String layersJson;
 
+    // 페이지 원본(프린트용) URL
+    private String originalUrl;
+
+    // 페이지 미리보기(앱용) URL
+    private String previewUrl;
+
     private String imageUrl;
 
     private String thumbnailUrl;

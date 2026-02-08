@@ -21,10 +21,28 @@ public class CreateAlbumRequest {
     // Flutter LayerModel[] 직렬화 JSON (커버 레이어 전체)
     private String coverLayersJson;
 
+    /**
+     * 커버 테마(배경) 식별자
+     * - coverLayersJson과 분리 저장
+     */
+    private String coverTheme;
+
+    // 커버 원본(프린트용) URL
+    private String coverOriginalUrl;
+
+    // 커버 미리보기(앱용) URL
+    private String coverPreviewUrl;
+
     // 커버 고해상도 렌더 이미지 URL
     private String coverImageUrl;
 
     // 커버 썸네일 이미지 URL
     private String coverThumbnailUrl;
+
+    /**
+     * 앨범 소유자 식별자 (예: Firebase UID)
+     * - 내가 저장한 앨범만 조회할 때 사용
+     */
+    private String userId;
 
 }

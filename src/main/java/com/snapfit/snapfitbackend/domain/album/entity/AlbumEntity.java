@@ -22,31 +22,49 @@ public class AlbumEntity {
     private Long id;
 
     /**
+     * 앨범 소유자 식별자 (예: Firebase UID 등)
+     * - 이 사용자가 저장한 앨범만 조회할 때 사용
+     */
+    @Column(name = "user_id", nullable = false, length = 128)
+    private String userId;
+
+    /**
      * 커버/페이지 비율
      * 예) "3:4", "1:1", "A4"
      */
-    @Column(nullable = false, length = 20)
+    @Column(name = "ratio", nullable = false, length = 100)
     private String ratio;
 
-    /**
-     * 커버 대표 이미지 URL (렌더링된 최종 이미지)
-     */
-    @Column(name = "cover_image_url", length = 500)
+    @Column(name = "cover_image_url", length = 1000) // 500 -> 1000으로 확장
     private String coverImageUrl;
 
-    /**
-     * 앨범 전체 썸네일(목록용)
-     */
-    @Column(name = "cover_thumbnail_url", length = 500)
+    @Column(name = "cover_thumbnail_url", length = 1000) // 500 -> 1000으로 확장
     private String coverThumbnailUrl;
 
     /**
-     * 커버 레이어 JSON
-     * LayerModel[] 형태 그대로 Flutter → 백엔드 저장
+     * 커버 원본(프린트용) URL
      */
-    @Lob
+    @Column(name = "cover_original_url", length = 1000)
+    private String coverOriginalUrl;
+
+    /**
+     * 커버 미리보기(앱용) URL
+     * - 하위 호환을 위해 coverImageUrl에도 동일 값을 미러링할 수 있습니다.
+     */
+    @Column(name = "cover_preview_url", length = 1000)
+    private String coverPreviewUrl;
+
+    // @Lob은 환경에 따라 문제를 일으킬 수 있으므로 columnDefinition만 명시하는 것이 안전할 때가 많습니다.
     @Column(name = "cover_layers_json", columnDefinition = "LONGTEXT")
     private String coverLayersJson;
+
+    /**
+     * 커버 테마(배경) 식별자
+     * - coverLayersJson(레이어)와 분리 저장/복원
+     * - 예) "classic"
+     */
+    @Column(name = "cover_theme", length = 100)
+    private String coverTheme;
 
     /**
      * 페이지 개수 캐시
@@ -57,11 +75,8 @@ public class AlbumEntity {
     /**
      * 앨범에 속한 페이지들
      */
-    @OneToMany(
-            mappedBy = "album",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
+    @Builder.Default
+    @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<AlbumPageEntity> pages = new ArrayList<>();
 

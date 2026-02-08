@@ -20,6 +20,9 @@ public class AlbumDetailResponse {
     private String ratio;
 
     private String coverLayersJson;
+    private String coverTheme;
+    private String coverOriginalUrl;
+    private String coverPreviewUrl;
     private String coverImageUrl;
     private String albumThumbnailUrl;
 

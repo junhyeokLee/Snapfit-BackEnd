@@ -43,10 +43,23 @@ public class AlbumPageEntity {
     private String layersJson;
 
     /**
-     * 이 페이지를 한 장의 이미지로 렌더링한 URL (인쇄용/미리보기용 원본)
+     * (구) 이 페이지를 한 장의 이미지로 렌더링한 URL
+     * - 하위 호환을 위해 previewUrl을 미러링해서 저장할 수 있습니다.
      */
     @Column(name = "image_url", length = 500)
     private String imageUrl;
+
+    /**
+     * 페이지 원본(프린트용) URL
+     */
+    @Column(name = "original_url", length = 1000)
+    private String originalUrl;
+
+    /**
+     * 페이지 미리보기(앱용) URL
+     */
+    @Column(name = "preview_url", length = 1000)
+    private String previewUrl;
 
     /**
      * 리스트 / 하단 썸네일 바에서 보여줄 작은 이미지 URL

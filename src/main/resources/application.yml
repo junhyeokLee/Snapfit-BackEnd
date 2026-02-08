@@ -7,11 +7,14 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.MySQL8Dialect
     show-sql: true
 
 server:
   port: 8080
+  # 외부 접근을 위해 모든 네트워크 인터페이스(0.0.0.0)에 바인딩
+  # localhost만 허용하려면 주석 처리하거나 address: localhost 로 변경
+  address: 0.0.0.0
 
 ---
 # DEV 프로필
@@ -34,7 +37,29 @@ spring:
       on-profile: prod
 
   datasource:
-    url: jdbc:mysql://localhost:3306/snapfit_prod?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    # 운영 환경에서는 실제 MySQL 서버 주소로 변경
+    # 예: jdbc:mysql://db.snapfit.com:3306/snapfit_prod?useSSL=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/snapfit_prod?useSSL=${DB_USE_SSL:false}&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: ${DB_USERNAME:snapfit_prod}
-    password: ${DB_PASSWORD:prod_password_here}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # 운영 환경에서는 SQL 로그 비활성화
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate  # 운영에서는 update 대신 validate 사용 권장
+
+firebase:
+  # 예시: file:/etc/secrets/firebase-service-account.json 또는 classpath:firebase-service-account.json
+  service-account:
+    file: ${FIREBASE_SERVICE_ACCOUNT_FILE:}
+  storage:
+    # 예시: your-project-id.appspot.com
+    bucket: ${FIREBASE_STORAGE_BUCKET:}
+
+# CORS 설정
+# 운영 환경에서는 실제 프론트엔드 도메인만 허용
+# 예: cors.allowed-origins=https://app.snapfit.com,https://www.snapfit.com
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
