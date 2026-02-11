@@ -3,24 +3,34 @@ package com.snapfit.snapfitbackend.domain.image;
 /**
  * 이미지 스토리지(Firebase Storage 등) 삭제를 추상화한 서비스.
  *
- * <p>왜 이렇게 분리하나?</p>
+ * <p>
+ * 왜 이렇게 분리하나?
+ * </p>
  * - 앨범/페이지를 삭제할 때, DB 레코드만 지우면 스토리지에는 고해상도 이미지가 계속 남아
- *   저장 용량/비용이 기하급수적으로 늘어납니다.
+ * 저장 용량/비용이 기하급수적으로 늘어납니다.
  * - 사용자가 앨범을 완전히 삭제했다고 인식하는데, 실제로는 사진이 서버 스토리지에 남아 있으면
- *   프라이버시/보안 측면에서도 좋지 않습니다.
+ * 프라이버시/보안 측면에서도 좋지 않습니다.
  * - 따라서 도메인 서비스(AlbumService)는 "이 URL이 더 이상 어떤 앨범/페이지에서도 참조되지 않는다"를
- *   DB 기준으로 판단하고, 그 후 실제 스토리지 정리는 이 인터페이스를 통해 위임합니다.
+ * DB 기준으로 판단하고, 그 후 실제 스토리지 정리는 이 인터페이스를 통해 위임합니다.
  *
  * - 실제 구현체(Firebase, AWS S3 등)는 인프라 레벨에서 제공하고,
- *   로컬/개발 환경에서는 No-Op 구현을 써서 안전하게 동작하게 합니다.
+ * 로컬/개발 환경에서는 No-Op 구현을 써서 안전하게 동작하게 합니다.
  */
 public interface ImageStorageService {
 
     /**
+     * 이미지 파일 업로드
+     * 
+     * @param file      업로드할 파일
+     * @param directory 저장할 디렉토리 (예: "profiles", "albums")
+     * @return 업로드된 이미지의 URL
+     */
+    String upload(org.springframework.web.multipart.MultipartFile file, String directory);
+
+    /**
      * 주어진 URL의 이미지를 스토리지에서 삭제.
      * - 호출 시점에는 이미 "더 이상 어떤 앨범/페이지에서도 사용되지 않는다"는 것이
-     *   DB를 통해 검증된 상태여야 합니다.
+     * DB를 통해 검증된 상태여야 합니다.
      */
     void delete(String url);
 }
-

@@ -11,8 +11,15 @@ import org.springframework.stereotype.Service;
  */
 @Slf4j
 @Service
-@Profile({"dev", "default"})
+@Profile("test")
 public class NoopImageStorageService implements ImageStorageService {
+
+    @Override
+    public String upload(org.springframework.web.multipart.MultipartFile file, String directory) {
+        log.info("[NoopImageStorageService] upload called for file={}, directory={}", file.getOriginalFilename(),
+                directory);
+        return "https://dummy-url.com/" + directory + "/filename.jpg";
+    }
 
     @Override
     public void delete(String url) {
@@ -22,4 +29,3 @@ public class NoopImageStorageService implements ImageStorageService {
         log.info("[NoopImageStorageService] delete called for url={}", url);
     }
 }
-

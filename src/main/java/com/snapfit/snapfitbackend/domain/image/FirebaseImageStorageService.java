@@ -10,8 +10,9 @@ import org.springframework.stereotype.Service;
  * prod 환경에서 실제 Firebase Storage 에서 이미지를 삭제하는 구현체.
  *
  * URL 은 보통 다음 두 형태 중 하나일 수 있습니다.
- *  - https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}%2Ffile.jpg?alt=media
- *  - gs://{bucket}/{path}/file.jpg
+ * -
+ * https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}%2Ffile.jpg?alt=media
+ * - gs://{bucket}/{path}/file.jpg
  *
  * DB 에 저장하는 URL 규칙에 맞춰 extractObjectNameFromUrl() 로 object name 을 추출한 뒤 삭제합니다.
  */
@@ -19,6 +20,40 @@ import org.springframework.stereotype.Service;
 @Service
 @Profile("prod")
 public class FirebaseImageStorageService implements ImageStorageService {
+
+    @org.springframework.beans.factory.annotation.Value("${firebase.storage.bucket}")
+    private String bucketName;
+
+    @Override
+    public String upload(org.springframework.web.multipart.MultipartFile file, String directory) {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("Cannot upload empty file");
+        }
+
+        try {
+            String originalFilename = file.getOriginalFilename();
+            String extension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+            String filename = directory + "/" + java.util.UUID.randomUUID() + extension;
+
+            StorageClient.getInstance().bucket(bucketName).create(
+                    filename,
+                    file.getInputStream(),
+                    file.getContentType());
+
+            // Firebase Storage 다운로드 URL 생성 (공개 읽기 권한 필요할 수 있음, or Signed URL)
+            // 여기서는 기본 미디어 다운로드 URL 패턴 사용
+            // https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<path>?alt=media
+            return String.format("https://firebasestorage.googleapis.com/v0/b/%s/o/%s?alt=media",
+                    bucketName,
+                    java.net.URLEncoder.encode(filename, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            log.error("Failed to upload image to Firebase Storage", e);
+            throw new RuntimeException("Failed to upload image", e);
+        }
+    }
 
     @Override
     public void delete(String url) {
@@ -63,7 +98,8 @@ public class FirebaseImageStorageService implements ImageStorageService {
                 return withoutScheme.substring(firstSlash + 1);
             }
 
-            // 예시: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}%2Ffile.jpg?alt=media
+            // 예시:
+            // https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}%2Ffile.jpg?alt=media
             int index = url.indexOf("/o/");
             if (index < 0) {
                 return null;
@@ -80,4 +116,3 @@ public class FirebaseImageStorageService implements ImageStorageService {
         }
     }
 }
-
