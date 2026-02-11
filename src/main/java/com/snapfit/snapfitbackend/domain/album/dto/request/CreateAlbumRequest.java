@@ -4,7 +4,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDate;
 
 /**
  * 앨범 생성 요청 DTO
@@ -17,6 +16,9 @@ public class CreateAlbumRequest {
 
     // 앨범 / 커버 비율 (예: "3:4", "1:1", "A4")
     private String ratio;
+
+    // 목표 페이지 수 (완성 기준)
+    private Integer targetPages;
 
     // Flutter LayerModel[] 직렬화 JSON (커버 레이어 전체)
     private String coverLayersJson;

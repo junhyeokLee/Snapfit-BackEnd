@@ -7,7 +7,7 @@ set -e
 
 SERVER_IP=$1
 KEY_FILE=$2
-JAR_FILE="build/libs/snapfit-backend-0.0.1-SNAPSHOT.jar"
+JAR_FILE="build/libs/SnapFit-BackEnd-0.0.1-SNAPSHOT.jar"
 
 if [ -z "$SERVER_IP" ] || [ -z "$KEY_FILE" ]; then
     echo "사용법: ./quick-deploy.sh <서버IP> <키파일경로>"

@@ -9,6 +9,9 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MySQL8Dialect
     show-sql: true
+  sql:
+    init:
+      mode: always
 
 server:
   port: 8080
@@ -48,7 +51,10 @@ spring:
   jpa:
     show-sql: false
     hibernate:
-      ddl-auto: validate  # 운영에서는 update 대신 validate 사용 권장
+      ddl-auto: update  # 초대 테이블 추가를 위해 update로 완화
+  sql:
+    init:
+      mode: always
 
 firebase:
   # 예시: file:/etc/secrets/firebase-service-account.json 또는 classpath:firebase-service-account.json

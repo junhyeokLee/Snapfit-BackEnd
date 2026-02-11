@@ -21,6 +21,7 @@ public class AlbumListResponse {
     private String coverThumbnailUrl;
     private String coverImageUrl;
     private Integer totalPages;
+    private Integer targetPages;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

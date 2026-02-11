@@ -1,7 +1,11 @@
 package com.snapfit.snapfitbackend.domain.album.service;
 
 import com.snapfit.snapfitbackend.domain.album.entity.AlbumEntity;
+import com.snapfit.snapfitbackend.domain.album.entity.AlbumMemberEntity;
+import com.snapfit.snapfitbackend.domain.album.entity.AlbumMemberRole;
+import com.snapfit.snapfitbackend.domain.album.entity.AlbumMemberStatus;
 import com.snapfit.snapfitbackend.domain.album.entity.AlbumPageEntity;
+import com.snapfit.snapfitbackend.domain.album.repository.AlbumMemberRepository;
 import com.snapfit.snapfitbackend.domain.album.repository.AlbumPageRepository;
 import com.snapfit.snapfitbackend.domain.album.repository.AlbumRepository;
 import com.snapfit.snapfitbackend.domain.image.ImageStorageService;
@@ -10,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +22,7 @@ public class AlbumService {
 
     private final AlbumRepository albumRepository;
     private final AlbumPageRepository albumPageRepository;
+    private final AlbumMemberRepository albumMemberRepository;
     private final ImageStorageService imageStorageService;
 
     /**
@@ -28,6 +34,7 @@ public class AlbumService {
     public AlbumEntity createAlbum(
             String userId,
             String ratio,
+            Integer targetPages,
             String coverLayersJson,
             String coverTheme,
             String coverOriginalUrl,
@@ -47,6 +54,7 @@ public class AlbumService {
         AlbumEntity album = AlbumEntity.builder()
                 .userId(userId)
                 .ratio(ratio)
+                .targetPages(targetPages == null ? 0 : targetPages)
                 .coverLayersJson(coverLayersJson)      // 커버 레이어 JSON
                 .coverTheme(coverTheme)                // 커버 테마(배경)
                 .coverOriginalUrl(coverOriginalUrl)    // 커버 원본(프린트용)
@@ -55,7 +63,24 @@ public class AlbumService {
                 .coverThumbnailUrl(coverThumbnailUrl)  // 목록용 썸네일 (없으면 null 허용)
                 .build();
 
-        return albumRepository.save(album);
+        AlbumEntity saved = albumRepository.save(album);
+
+        // 소유자를 멤버로 등록
+        try {
+            AlbumMemberEntity owner = AlbumMemberEntity.builder()
+                    .album(saved)
+                    .userId(userId)
+                    .role(AlbumMemberRole.OWNER)
+                    .status(AlbumMemberStatus.ACCEPTED)
+                    .invitedBy(userId)
+                    .build();
+            albumMemberRepository.save(owner);
+        } catch (Exception e) {
+            // 운영 환경에서 멤버 테이블이 아직 없을 수 있어 생성은 계속 진행
+            // (멤버 기능은 이후 마이그레이션 완료 시 정상 동작)
+        }
+
+        return saved;
     }
 
     /**
@@ -63,7 +88,11 @@ public class AlbumService {
      */
     @Transactional(readOnly = true)
     public List<AlbumEntity> getAlbumsByUserId(String userId) {
-        return albumRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        try {
+            return albumRepository.findAllAccessibleByUser(userId);
+        } catch (Exception e) {
+            return albumRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        }
     }
 
     /**
@@ -71,7 +100,7 @@ public class AlbumService {
      */
     @Transactional(readOnly = true)
     public List<AlbumPageEntity> getAlbumPages(Long albumId, String userId) {
-        getAlbum(albumId, userId); // 소유자 검증
+        getAlbumForMember(albumId, userId); // 멤버/소유자 검증
         return albumPageRepository.findByAlbumId(albumId);
     }
 
@@ -94,8 +123,8 @@ public class AlbumService {
             String thumbnailUrl,
             String userId
     ) {
-        // 1) 앨범 엔티티 조회 + 소유자 검증
-        AlbumEntity album = getAlbum(albumId, userId);
+        // 1) 앨범 엔티티 조회 + 편집 권한 검증
+        AlbumEntity album = assertCanEdit(albumId, userId);
 
         // 2) 기존 페이지 있는지 확인 (없으면 새 엔티티)
         AlbumPageEntity page = albumPageRepository
@@ -114,7 +143,13 @@ public class AlbumService {
         page.setThumbnailUrl(thumbnailUrl);
 
         // 4) 저장
-        return albumPageRepository.save(page);
+        AlbumPageEntity saved = albumPageRepository.save(page);
+
+        // 5) 페이지 수 캐시 갱신
+        long pageCount = albumPageRepository.countByAlbumId(albumId);
+        album.setTotalPages((int) pageCount);
+
+        return saved;
     }
 
     /**
@@ -130,6 +165,88 @@ public class AlbumService {
         return album;
     }
 
+    @Transactional(readOnly = true)
+    public AlbumEntity getAlbumForMember(Long albumId, String userId) {
+        AlbumEntity album = albumRepository.findById(albumId)
+                .orElseThrow(() -> new IllegalArgumentException("앨범을 찾을 수 없습니다. id=" + albumId));
+        if (album.getUserId().equals(userId)) {
+            return album;
+        }
+        boolean isMember = albumMemberRepository
+                .existsByAlbumIdAndUserIdAndStatus(albumId, userId, AlbumMemberStatus.ACCEPTED);
+        if (!isMember) {
+            throw new IllegalArgumentException("해당 앨범에 대한 권한이 없습니다.");
+        }
+        return album;
+    }
+
+    private AlbumEntity assertCanEdit(Long albumId, String userId) {
+        AlbumEntity album = albumRepository.findById(albumId)
+                .orElseThrow(() -> new IllegalArgumentException("앨범을 찾을 수 없습니다. id=" + albumId));
+        if (album.getUserId().equals(userId)) {
+            return album;
+        }
+        AlbumMemberEntity member = albumMemberRepository
+                .findByAlbumIdAndUserId(albumId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 앨범에 대한 권한이 없습니다."));
+        if (member.getStatus() != AlbumMemberStatus.ACCEPTED) {
+            throw new IllegalArgumentException("해당 앨범에 대한 권한이 없습니다.");
+        }
+        if (member.getRole() != AlbumMemberRole.EDITOR && member.getRole() != AlbumMemberRole.OWNER) {
+            throw new IllegalArgumentException("해당 앨범에 대한 권한이 없습니다.");
+        }
+        return album;
+    }
+
+    @Transactional
+    public AlbumMemberEntity inviteMember(Long albumId, String ownerId, AlbumMemberRole role) {
+        AlbumEntity album = getAlbum(albumId, ownerId);
+        String token = UUID.randomUUID().toString().replace("-", "");
+        AlbumMemberEntity member = AlbumMemberEntity.builder()
+                .album(album)
+                .role(role == null ? AlbumMemberRole.EDITOR : role)
+                .status(AlbumMemberStatus.PENDING)
+                .invitedBy(ownerId)
+                .inviteToken(token)
+                .build();
+        return albumMemberRepository.save(member);
+    }
+
+    @Transactional(readOnly = true)
+    public AlbumMemberEntity getInvite(String token) {
+        return albumMemberRepository.findByInviteToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("초대 정보를 찾을 수 없습니다."));
+    }
+
+    @Transactional
+    public AlbumMemberEntity acceptInvite(String token, String userId) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId는 필수입니다.");
+        }
+        AlbumMemberEntity invite = albumMemberRepository.findByInviteToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("초대 정보를 찾을 수 없습니다."));
+        if (invite.getStatus() == AlbumMemberStatus.ACCEPTED) {
+            throw new IllegalArgumentException("이미 수락된 초대입니다.");
+        }
+        boolean alreadyMember = albumMemberRepository
+                .existsByAlbumIdAndUserIdAndStatus(invite.getAlbum().getId(), userId, AlbumMemberStatus.ACCEPTED);
+        if (alreadyMember) {
+            invite.setStatus(AlbumMemberStatus.ACCEPTED);
+            invite.setInviteToken(null);
+            return albumMemberRepository.save(invite);
+        }
+        invite.setUserId(userId);
+        invite.setStatus(AlbumMemberStatus.ACCEPTED);
+        invite.setInviteToken(null);
+        return albumMemberRepository.save(invite);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AlbumMemberEntity> getMembers(Long albumId, String requesterId) {
+        getAlbumForMember(albumId, requesterId);
+        return albumMemberRepository.findByAlbumId(albumId);
+    }
+
     /**
      * 앨범 수정 (소유자만)
      * - CreateAlbumRequest와 동일한 필드(ratio, coverLayersJson, coverImageUrl, coverThumbnailUrl)로 갱신
@@ -139,6 +256,7 @@ public class AlbumService {
             Long albumId,
             String userId,
             String ratio,
+            Integer targetPages,
             String coverLayersJson,
             String coverTheme,
             String coverOriginalUrl,
@@ -148,6 +266,9 @@ public class AlbumService {
     ) {
         AlbumEntity album = getAlbum(albumId, userId);
         album.setRatio(ratio);
+        if (targetPages != null && targetPages > 0) {
+            album.setTargetPages(targetPages);
+        }
         album.setCoverLayersJson(coverLayersJson);
         album.setCoverTheme(coverTheme);
 

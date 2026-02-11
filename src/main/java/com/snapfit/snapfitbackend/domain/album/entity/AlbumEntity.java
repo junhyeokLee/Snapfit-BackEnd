@@ -73,6 +73,12 @@ public class AlbumEntity {
     private Integer totalPages;
 
     /**
+     * 목표 페이지 수 (완성 기준)
+     */
+    @Column(name = "target_pages")
+    private Integer targetPages;
+
+    /**
      * 앨범에 속한 페이지들
      */
     @Builder.Default
@@ -92,6 +98,9 @@ public class AlbumEntity {
         this.updatedAt = this.createdAt;
         if (this.totalPages == null) {
             this.totalPages = 0;
+        }
+        if (this.targetPages == null) {
+            this.targetPages = 0;
         }
     }
 

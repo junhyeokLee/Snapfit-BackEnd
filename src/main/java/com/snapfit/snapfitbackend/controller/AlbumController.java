@@ -1,14 +1,19 @@
 // src/main/java/com/snapfit/snapfitbackend/controller/AlbumController.java
 package com.snapfit.snapfitbackend.controller;
 
+import com.snapfit.snapfitbackend.domain.album.dto.request.InviteAlbumRequest;
 import com.snapfit.snapfitbackend.domain.album.dto.response.AlbumDetailResponse;
 import com.snapfit.snapfitbackend.domain.album.dto.response.AlbumListResponse;
+import com.snapfit.snapfitbackend.domain.album.dto.response.AlbumMemberResponse;
 import com.snapfit.snapfitbackend.domain.album.entity.AlbumEntity;
+import com.snapfit.snapfitbackend.domain.album.entity.AlbumMemberEntity;
+import com.snapfit.snapfitbackend.domain.album.entity.AlbumMemberRole;
 import com.snapfit.snapfitbackend.domain.album.entity.AlbumPageEntity;
 import com.snapfit.snapfitbackend.domain.album.dto.response.AlbumPageResponse;
 import com.snapfit.snapfitbackend.domain.album.dto.request.CreateAlbumRequest;
 import com.snapfit.snapfitbackend.domain.album.dto.response.CreateAlbumResponse;
 import com.snapfit.snapfitbackend.domain.album.dto.request.SaveAlbumPageRequest;
+import com.snapfit.snapfitbackend.domain.album.dto.response.InviteLinkResponse;
 import com.snapfit.snapfitbackend.domain.album.service.AlbumService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,6 +47,7 @@ public class AlbumController {
         AlbumEntity album = albumService.createAlbum(
                 request.getUserId(),
                 request.getRatio(),
+                request.getTargetPages(),
                 request.getCoverLayersJson(),
                 request.getCoverTheme(),
                 request.getCoverOriginalUrl(),
@@ -53,6 +59,7 @@ public class AlbumController {
         CreateAlbumResponse response = CreateAlbumResponse.builder()
                 .albumId(album.getId())
                 .ratio(album.getRatio())
+                .targetPages(album.getTargetPages())
                 .coverLayersJson(album.getCoverLayersJson())
                 .coverTheme(album.getCoverTheme())
                 .coverOriginalUrl(album.getCoverOriginalUrl())
@@ -82,6 +89,7 @@ public class AlbumController {
                         .coverThumbnailUrl(a.getCoverThumbnailUrl())
                         .coverImageUrl(a.getCoverImageUrl())
                         .totalPages(a.getTotalPages())
+                        .targetPages(a.getTargetPages())
                         .createdAt(a.getCreatedAt())
                         .updatedAt(a.getUpdatedAt())
                         .build())
@@ -167,6 +175,7 @@ public class AlbumController {
                 albumId,
                 userId,
                 request.getRatio(),
+                request.getTargetPages(),
                 request.getCoverLayersJson(),
                 request.getCoverTheme(),
                 request.getCoverOriginalUrl(),
@@ -177,6 +186,7 @@ public class AlbumController {
         CreateAlbumResponse response = CreateAlbumResponse.builder()
                 .albumId(album.getId())
                 .ratio(album.getRatio())
+                .targetPages(album.getTargetPages())
                 .coverLayersJson(album.getCoverLayersJson())
                 .coverTheme(album.getCoverTheme())
                 .coverOriginalUrl(album.getCoverOriginalUrl())
@@ -203,6 +213,51 @@ public class AlbumController {
     }
 
     /**
+     * 앨범 멤버 초대 링크 생성 (소유자만)
+     */
+    @Operation(summary = "앨범 멤버 초대 링크 생성")
+    @PostMapping("/{albumId}/members/invite")
+    public ResponseEntity<InviteLinkResponse> inviteMember(
+            @PathVariable Long albumId,
+            @RequestParam String userId,
+            @RequestBody InviteAlbumRequest request
+    ) {
+        AlbumMemberRole role = AlbumMemberRole.EDITOR;
+        if (request.getRole() != null && !request.getRole().isBlank()) {
+            role = AlbumMemberRole.valueOf(request.getRole());
+        }
+        AlbumMemberEntity invite = albumService.inviteMember(albumId, userId, role);
+        InviteLinkResponse response = InviteLinkResponse.builder()
+                .albumId(albumId)
+                .token(invite.getInviteToken())
+                .link("/invite?token=" + invite.getInviteToken())
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 앨범 멤버 목록 조회
+     */
+    @Operation(summary = "앨범 멤버 목록 조회")
+    @GetMapping("/{albumId}/members")
+    public ResponseEntity<List<AlbumMemberResponse>> getMembers(
+            @PathVariable Long albumId,
+            @RequestParam String userId
+    ) {
+        List<AlbumMemberEntity> members = albumService.getMembers(albumId, userId);
+        List<AlbumMemberResponse> response = members.stream()
+                .map(m -> AlbumMemberResponse.builder()
+                        .id(m.getId())
+                        .albumId(m.getAlbum().getId())
+                        .userId(m.getUserId())
+                        .role(m.getRole().name())
+                        .status(m.getStatus().name())
+                        .build())
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * 앨범 상세 조회 (앨범 + 페이지 목록, 소유자만)
      */
     @Operation(summary = "앨범 상세 조회")
@@ -212,7 +267,7 @@ public class AlbumController {
             @RequestParam String userId
     ) {
         // 1) 앨범, 페이지 조회 (소유자 검증 포함)
-        AlbumEntity album = albumService.getAlbum(albumId, userId);
+        AlbumEntity album = albumService.getAlbumForMember(albumId, userId);
         List<AlbumPageEntity> pages = albumService.getAlbumPages(albumId, userId);
 
         // 2) 페이지 요약 DTO로 매핑
@@ -237,6 +292,7 @@ public class AlbumController {
                 .coverImageUrl(album.getCoverImageUrl())
                 .albumThumbnailUrl(album.getCoverThumbnailUrl())
                 .totalPages(album.getTotalPages())
+                .targetPages(album.getTargetPages())
                 .createdAt(album.getCreatedAt())
                 .updatedAt(album.getUpdatedAt())
                 .pages(pageResponses)

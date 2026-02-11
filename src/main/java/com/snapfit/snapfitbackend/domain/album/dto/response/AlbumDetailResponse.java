@@ -27,6 +27,7 @@ public class AlbumDetailResponse {
     private String albumThumbnailUrl;
 
     private Integer totalPages;
+    private Integer targetPages;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
