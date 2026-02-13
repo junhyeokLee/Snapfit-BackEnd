@@ -4,7 +4,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-
 /**
  * 앨범 생성 요청 DTO
  * - 플러터에서 앨범 생성할 때 보내는 기본 데이터
@@ -16,6 +15,9 @@ public class CreateAlbumRequest {
 
     // 앨범 / 커버 비율 (예: "3:4", "1:1", "A4")
     private String ratio;
+
+    // 앨범 제목
+    private String title;
 
     // 목표 페이지 수 (완성 기준)
     private Integer targetPages;

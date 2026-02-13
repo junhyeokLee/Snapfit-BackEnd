@@ -8,10 +8,12 @@ import com.snapfit.snapfitbackend.domain.album.entity.AlbumPageEntity;
 import com.snapfit.snapfitbackend.domain.album.repository.AlbumMemberRepository;
 import com.snapfit.snapfitbackend.domain.album.repository.AlbumPageRepository;
 import com.snapfit.snapfitbackend.domain.album.repository.AlbumRepository;
+import com.snapfit.snapfitbackend.domain.auth.repository.UserRepository;
 import com.snapfit.snapfitbackend.domain.image.ImageStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.UUID;
@@ -24,6 +26,48 @@ public class AlbumService {
     private final AlbumPageRepository albumPageRepository;
     private final AlbumMemberRepository albumMemberRepository;
     private final ImageStorageService imageStorageService;
+    private final ObjectMapper objectMapper;
+    private final AlbumLockService albumLockService;
+    private final UserRepository userRepository;
+
+    /**
+     * 앨범 편집 잠금 (진입 시)
+     */
+    public void lockAlbum(Long albumId, String userId) {
+        albumLockService.lock(albumId, userId);
+    }
+
+    /**
+     * 앨범 편집 잠금 해제 (이탈 시)
+     */
+    public void unlockAlbum(Long albumId, String userId) {
+        albumLockService.unlock(albumId, userId);
+    }
+
+    /**
+     * 앨범 편집 잠금 상태 확인
+     */
+    public String getAlbumLocker(Long albumId) {
+        return albumLockService.getLocker(albumId);
+    }
+
+    /**
+     * 앨범 편집 잠금 중인 사용자의 닉네임 조회
+     */
+    public String getAlbumLockerName(Long albumId) {
+        String userIdStr = getAlbumLocker(albumId);
+        if (userIdStr == null || userIdStr.isBlank()) {
+            return null;
+        }
+        try {
+            Long userId = Long.parseLong(userIdStr);
+            return userRepository.findById(userId)
+                    .map(com.snapfit.snapfitbackend.domain.auth.entity.UserEntity::getName)
+                    .orElse("알 수 없는 사용자");
+        } catch (NumberFormatException e) {
+            return "알 수 없는 사용자(" + userIdStr + ")";
+        }
+    }
 
     /**
      * 앨범 생성
@@ -34,14 +78,14 @@ public class AlbumService {
     public AlbumEntity createAlbum(
             String userId,
             String ratio,
+            String title,
             Integer targetPages,
             String coverLayersJson,
             String coverTheme,
             String coverOriginalUrl,
             String coverPreviewUrl,
             String coverImageUrl,
-            String coverThumbnailUrl
-    ) {
+            String coverThumbnailUrl) {
         // 엔티티 빌더로 앨범 생성
         if (userId == null || userId.isBlank()) {
             throw new IllegalArgumentException("userId는 필수입니다.");
@@ -54,13 +98,14 @@ public class AlbumService {
         AlbumEntity album = AlbumEntity.builder()
                 .userId(userId)
                 .ratio(ratio)
+                .title(title) // 앨범 제목
                 .targetPages(targetPages == null ? 0 : targetPages)
-                .coverLayersJson(coverLayersJson)      // 커버 레이어 JSON
-                .coverTheme(coverTheme)                // 커버 테마(배경)
-                .coverOriginalUrl(coverOriginalUrl)    // 커버 원본(프린트용)
+                .coverLayersJson(coverLayersJson) // 커버 레이어 JSON
+                .coverTheme(coverTheme) // 커버 테마(배경)
+                .coverOriginalUrl(coverOriginalUrl) // 커버 원본(프린트용)
                 .coverPreviewUrl(resolvedCoverPreviewUrl) // 커버 미리보기(앱용)
-                .coverImageUrl(resolvedCoverPreviewUrl)   // (구) 커버 이미지 URL = preview 미러링
-                .coverThumbnailUrl(coverThumbnailUrl)  // 목록용 썸네일 (없으면 null 허용)
+                .coverImageUrl(resolvedCoverPreviewUrl) // (구) 커버 이미지 URL = preview 미러링
+                .coverThumbnailUrl(coverThumbnailUrl) // 목록용 썸네일 (없으면 null 허용)
                 .build();
 
         AlbumEntity saved = albumRepository.save(album);
@@ -91,7 +136,32 @@ public class AlbumService {
         try {
             return albumRepository.findAllAccessibleByUser(userId);
         } catch (Exception e) {
-            return albumRepository.findByUserIdOrderByCreatedAtDesc(userId);
+            return albumRepository.findByUserIdOrderByOrdersAscCreatedAtDesc(userId);
+        }
+    }
+
+    /**
+     * 앨범 순서 변경
+     * - 전달받은 ID 리스트 순서대로 orders 값을 0부터 부여
+     */
+    @Transactional
+    public void reorderAlbums(String userId, List<Long> albumIds) {
+        if (albumIds == null || albumIds.isEmpty())
+            return;
+
+        // 1. 사용자의 모든 앨범 조회 (검증용)
+        List<AlbumEntity> myAlbums = getAlbumsByUserId(userId);
+
+        // 2. ID 매핑 (빠른 조회를 위해)
+        // 실제로는 DB 업데이트 쿼리를 날리거나, 엔티티를 순회하며 업데이트
+        for (int i = 0; i < albumIds.size(); i++) {
+            Long targetId = albumIds.get(i);
+            final int order = i;
+            // 내 앨범(또는 접근 가능한) 목록에 있는 경우만 업데이트
+            myAlbums.stream()
+                    .filter(a -> a.getId().equals(targetId))
+                    .findFirst()
+                    .ifPresent(album -> album.setOrders(order));
         }
     }
 
@@ -121,8 +191,7 @@ public class AlbumService {
             String layersJson,
             String renderImageUrl,
             String thumbnailUrl,
-            String userId
-    ) {
+            String userId) {
         // 1) 앨범 엔티티 조회 + 편집 권한 검증
         AlbumEntity album = assertCanEdit(albumId, userId);
 
@@ -132,8 +201,7 @@ public class AlbumService {
                 .orElseGet(() -> AlbumPageEntity.builder()
                         .album(album)
                         .pageNumber(pageNumber)
-                        .build()
-                );
+                        .build());
 
         // 3) 내용 업데이트
         page.setLayersJson(layersJson);
@@ -249,7 +317,8 @@ public class AlbumService {
 
     /**
      * 앨범 수정 (소유자만)
-     * - CreateAlbumRequest와 동일한 필드(ratio, coverLayersJson, coverImageUrl, coverThumbnailUrl)로 갱신
+     * - CreateAlbumRequest와 동일한 필드(ratio, coverLayersJson, coverImageUrl,
+     * coverThumbnailUrl)로 갱신
      */
     @Transactional
     public AlbumEntity updateAlbum(
@@ -262,8 +331,7 @@ public class AlbumService {
             String coverOriginalUrl,
             String coverPreviewUrl,
             String coverImageUrl,
-            String coverThumbnailUrl
-    ) {
+            String coverThumbnailUrl) {
         AlbumEntity album = getAlbum(albumId, userId);
         album.setRatio(ratio);
         if (targetPages != null && targetPages > 0) {
@@ -287,15 +355,17 @@ public class AlbumService {
     /**
      * 앨범 삭제 (소유자만 삭제 가능)
      *
-     * <p>왜 삭제 시 스토리지까지 정리하나?</p>
+     * <p>
+     * 왜 삭제 시 스토리지까지 정리하나?
+     * </p>
      * - 사용자가 앨범을 삭제했는데 Firebase Storage/S3에 고해상도 원본이 계속 남아 있으면
-     *   스토리지 비용이 쌓이고, 개인정보/프라이버시 측면에서도 "완전 삭제" 기대와 어긋납니다.
+     * 스토리지 비용이 쌓이고, 개인정보/프라이버시 측면에서도 "완전 삭제" 기대와 어긋납니다.
      * - 그렇다고 단순히 URL 모두를 무조건 delete 하면, 여러 앨범에서 같은 이미지를 재사용하는
-     *   경우에 다른 앨범 화면이 깨질 수 있습니다.
+     * 경우에 다른 앨범 화면이 깨질 수 있습니다.
      * - 그래서 이 메서드에서는:
-     *   1) 이 앨범이 참조하는 모든 이미지 URL을 수집하고
-     *   2) 앨범/페이지 레코드를 삭제한 뒤
-     *   3) 동일 URL을 참조하는 다른 앨범/페이지가 더 이상 없는 경우에만 실제 스토리지에서 삭제합니다.
+     * 1) 이 앨범이 참조하는 모든 이미지 URL을 수집하고
+     * 2) 앨범/페이지 레코드를 삭제한 뒤
+     * 3) 동일 URL을 참조하는 다른 앨범/페이지가 더 이상 없는 경우에만 실제 스토리지에서 삭제합니다.
      */
     @Transactional
     public void deleteAlbum(Long albumId, String userId) {
@@ -310,6 +380,7 @@ public class AlbumService {
         urls.add(album.getCoverPreviewUrl());
         urls.add(album.getCoverImageUrl());
         urls.add(album.getCoverThumbnailUrl());
+        extractUrlsFromJson(album.getCoverLayersJson(), urls);
 
         // 페이지 쪽
         for (AlbumPageEntity page : pages) {
@@ -317,6 +388,7 @@ public class AlbumService {
             urls.add(page.getPreviewUrl());
             urls.add(page.getImageUrl());
             urls.add(page.getThumbnailUrl());
+            extractUrlsFromJson(page.getLayersJson(), urls);
         }
 
         // 2) 앨범/페이지 레코드 삭제 (cascade)
@@ -324,23 +396,43 @@ public class AlbumService {
 
         // 3) 실제 스토리지에서 삭제: 더 이상 어떤 앨범/페이지에서도 사용하지 않는 URL만 삭제
         for (String url : urls) {
-            if (url == null || url.isBlank()) continue;
+            if (url == null || url.isBlank())
+                continue;
 
-            boolean usedByAlbum =
-                    albumRepository.existsByCoverOriginalUrl(url)
-                            || albumRepository.existsByCoverPreviewUrl(url)
-                            || albumRepository.existsByCoverImageUrl(url)
-                            || albumRepository.existsByCoverThumbnailUrl(url);
+            boolean usedByAlbum = albumRepository.existsByCoverOriginalUrl(url)
+                    || albumRepository.existsByCoverPreviewUrl(url)
+                    || albumRepository.existsByCoverImageUrl(url)
+                    || albumRepository.existsByCoverThumbnailUrl(url);
 
-            boolean usedByPage =
-                    albumPageRepository.existsByOriginalUrl(url)
-                            || albumPageRepository.existsByPreviewUrl(url)
-                            || albumPageRepository.existsByImageUrl(url)
-                            || albumPageRepository.existsByThumbnailUrl(url);
+            boolean usedByPage = albumPageRepository.existsByOriginalUrl(url)
+                    || albumPageRepository.existsByPreviewUrl(url)
+                    || albumPageRepository.existsByImageUrl(url)
+                    || albumPageRepository.existsByThumbnailUrl(url);
 
             if (!usedByAlbum && !usedByPage) {
                 imageStorageService.delete(url);
             }
+        }
+    }
+
+    private void extractUrlsFromJson(String json, java.util.Set<String> urls) {
+        if (json == null || json.isBlank()) {
+            return;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(json);
+            // "originalUrl", "previewUrl", "imageUrl" 키를 가진 모든 값을 찾아서 추가
+            List<String> keys = List.of("originalUrl", "previewUrl", "imageUrl");
+            for (String key : keys) {
+                List<com.fasterxml.jackson.databind.JsonNode> nodes = root.findValues(key);
+                for (com.fasterxml.jackson.databind.JsonNode node : nodes) {
+                    if (node.isTextual()) {
+                        urls.add(node.asText());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // 파싱 실패해도 로그만 남기고 진행 (삭제 로직이므로)
         }
     }
 }

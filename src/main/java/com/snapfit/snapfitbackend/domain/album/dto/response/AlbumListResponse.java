@@ -18,10 +18,14 @@ public class AlbumListResponse {
 
     private Long albumId;
     private String ratio;
+    private String title; // 앨범 제목
+    private String coverLayersJson; // 커버 레이어 JSON
+    private String coverTheme; // 커버 테마
     private String coverThumbnailUrl;
     private String coverImageUrl;
     private Integer totalPages;
     private Integer targetPages;
+    private String lockedBy; // 현재 편집 중인 사용자 ID (없으면 null)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

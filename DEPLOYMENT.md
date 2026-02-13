@@ -52,6 +52,29 @@ FLUSH PRIVILEGES;
 EXIT;
 ```
 
+#### 2.3 Redis 설치 및 설정
+동시 편집 잠금(Locking) 기능을 위해 Redis가 필요합니다.
+
+**Amazon Linux 2:**
+```bash
+# redis6 설치
+sudo amazon-linux-extras install redis6 -y
+
+# 서비스 시작 및 자동 시작
+sudo systemctl start redis
+sudo systemctl enable redis
+
+# 작동 확인 (PONG 응답 확인)
+redis-cli ping
+```
+
+**Ubuntu:**
+```bash
+sudo apt install redis-server -y
+sudo systemctl start redis
+sudo systemctl enable redis
+```
+
 ---
 
 ### 3. 애플리케이션 빌드 및 배포
@@ -150,6 +173,7 @@ sudo nano /etc/nginx/sites-available/snapfit-backend
 server {
     listen 80;
     server_name api.snapfit.com;  # 실제 도메인으로 변경
+    client_max_body_size 20M; # 이미지 업로드를 위해 용량 증설
 
     # HTTPS로 리다이렉트
     return 301 https://$server_name$request_uri;

@@ -68,7 +68,7 @@ public class FirebaseImageStorageService implements ImageStorageService {
                 return;
             }
 
-            Blob blob = StorageClient.getInstance().bucket().get(objectName);
+            Blob blob = StorageClient.getInstance().bucket(bucketName).get(objectName);
             if (blob == null) {
                 log.info("Blob not found for url={}, objectName={}", url, objectName);
                 return;

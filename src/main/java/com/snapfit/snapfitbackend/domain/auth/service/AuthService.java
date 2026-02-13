@@ -157,8 +157,14 @@ public class AuthService {
 
         if (profileImage != null && !profileImage.isEmpty()) {
             // 기존 이미지가 있다면 삭제하는 로직도 추가 고려 가능 (ImageStorageService delete)
-            String imageUrl = imageStorageService.upload(profileImage, "profiles");
-            user.setProfileImageUrl(imageUrl);
+            try {
+                String imageUrl = imageStorageService.upload(profileImage, "profiles");
+                user.setProfileImageUrl(imageUrl);
+            } catch (Exception e) {
+                // 업로드 실패 시 500 에러를 명확히 하기 위해 로그 남기고 다시 던짐
+                // (ControllerAdvice에서 500 처리됨)
+                throw new RuntimeException("Failed to upload profile image: " + e.getMessage(), e);
+            }
         }
 
         userRepository.save(user);

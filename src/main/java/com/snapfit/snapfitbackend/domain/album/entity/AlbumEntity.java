@@ -35,6 +35,12 @@ public class AlbumEntity {
     @Column(name = "ratio", nullable = false, length = 100)
     private String ratio;
 
+    /**
+     * 앨범 제목
+     */
+    @Column(name = "title", length = 255)
+    private String title;
+
     @Column(name = "cover_image_url", length = 1000) // 500 -> 1000으로 확장
     private String coverImageUrl;
 
@@ -79,6 +85,12 @@ public class AlbumEntity {
     private Integer targetPages;
 
     /**
+     * 사용자 지정 순서 (낮을수록 상단/앞쪽 노출)
+     */
+    @Column(name = "orders")
+    private Integer orders;
+
+    /**
      * 앨범에 속한 페이지들
      */
     @Builder.Default
@@ -102,6 +114,9 @@ public class AlbumEntity {
         if (this.targetPages == null) {
             this.targetPages = 0;
         }
+        if (this.orders == null) {
+            this.orders = 0;
+        }
     }
 
     @PreUpdate
@@ -114,14 +129,16 @@ public class AlbumEntity {
     // ==========================
 
     public void addPage(AlbumPageEntity page) {
-        if (page == null) return;
+        if (page == null)
+            return;
         this.pages.add(page);
         page.setAlbum(this);
         this.totalPages = this.pages.size();
     }
 
     public void removePage(AlbumPageEntity page) {
-        if (page == null) return;
+        if (page == null)
+            return;
         this.pages.remove(page);
         page.setAlbum(null);
         this.totalPages = this.pages.size();

@@ -25,11 +25,25 @@ public class FirebaseConfig {
     @Value("${firebase.storage.bucket:}")
     private String storageBucket;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.core.env.Environment environment;
+
     @PostConstruct
     public void init() throws Exception {
+        // 현재 활성 프로필 확인
+        boolean isProd = java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod");
+
         // 설정이 비어 있으면 초기화 스킵 (예: dev/local)
         if (serviceAccountLocation == null || serviceAccountLocation.isBlank()
                 || storageBucket == null || storageBucket.isBlank()) {
+
+            // [MODIFIED] 운영 환경(prod)에서도 설정이 없으면 경고만 남기고 진행 (서버 기동 우선)
+            if (isProd) {
+                System.err.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                System.err.println("WARNING: Firebase configuration is MISSING in PROD environment.");
+                System.err.println("Image upload/storage features will NOT work.");
+                System.err.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            }
             return;
         }
 
@@ -64,4 +78,3 @@ public class FirebaseConfig {
         }
     }
 }
-

@@ -18,6 +18,7 @@ public class AlbumDetailResponse {
     // 앨범 기본 정보
     private Long albumId;
     private String ratio;
+    private String title; // 앨범 제목
 
     private String coverLayersJson;
     private String coverTheme;
@@ -28,6 +29,7 @@ public class AlbumDetailResponse {
 
     private Integer totalPages;
     private Integer targetPages;
+    private String lockedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

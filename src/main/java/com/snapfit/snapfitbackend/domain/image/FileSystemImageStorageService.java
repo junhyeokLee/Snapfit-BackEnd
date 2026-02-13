@@ -1,6 +1,7 @@
 package com.snapfit.snapfitbackend.domain.image;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,6 +19,7 @@ import java.util.UUID;
  */
 @Slf4j
 @Service
+@Primary
 @Profile("!prod")
 public class FileSystemImageStorageService implements ImageStorageService {
 

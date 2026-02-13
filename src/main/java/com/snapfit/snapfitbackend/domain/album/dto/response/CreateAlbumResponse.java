@@ -17,6 +17,8 @@ public class CreateAlbumResponse {
     @JsonProperty("ratio") // Flutter의 coverRatio와 매핑
     private String ratio;
 
+    private String title; // 앨범 제목
+
     private Integer targetPages;
     private String coverLayersJson;
     private String coverTheme;
