@@ -30,6 +30,7 @@ public class AlbumDetailResponse {
     private Integer totalPages;
     private Integer targetPages;
     private String lockedBy;
+    private String lockedById;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

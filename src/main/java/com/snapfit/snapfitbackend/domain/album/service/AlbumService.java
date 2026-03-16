@@ -65,7 +65,8 @@ public class AlbumService {
                     .map(com.snapfit.snapfitbackend.domain.auth.entity.UserEntity::getName)
                     .orElse("알 수 없는 사용자");
         } catch (NumberFormatException e) {
-            return "알 수 없는 사용자(" + userIdStr + ")";
+            // UUID 등 숫자가 아닌 값이 들어오면 더 이상 지원하지 않음
+            return "알 수 없는 사용자";
         }
     }
 

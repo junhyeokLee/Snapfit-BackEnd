@@ -94,6 +94,7 @@ public class AlbumController {
                                                 .totalPages(a.getTotalPages())
                                                 .targetPages(a.getTargetPages())
                                                 .lockedBy(albumService.getAlbumLockerName(a.getId()))
+                                                .lockedById(albumService.getAlbumLocker(a.getId()))
                                                 .createdAt(a.getCreatedAt())
                                                 .updatedAt(a.getUpdatedAt())
                                                 .build())
@@ -185,6 +186,7 @@ public class AlbumController {
                 CreateAlbumResponse response = CreateAlbumResponse.builder()
                                 .albumId(album.getId())
                                 .ratio(album.getRatio())
+                                .title(album.getTitle()) // 앨범 제목
                                 .targetPages(album.getTargetPages())
                                 .coverLayersJson(album.getCoverLayersJson())
                                 .coverTheme(album.getCoverTheme())
@@ -290,6 +292,7 @@ public class AlbumController {
                                 .totalPages(album.getTotalPages())
                                 .targetPages(album.getTargetPages())
                                 .lockedBy(albumService.getAlbumLockerName(album.getId()))
+                                .lockedById(albumService.getAlbumLocker(album.getId()))
                                 .createdAt(album.getCreatedAt())
                                 .updatedAt(album.getUpdatedAt())
                                 .pages(pageResponses)

@@ -25,7 +25,8 @@ public class AlbumListResponse {
     private String coverImageUrl;
     private Integer totalPages;
     private Integer targetPages;
-    private String lockedBy; // 현재 편집 중인 사용자 ID (없으면 null)
+    private String lockedBy; // 현재 편집 중인 사용자 이름 (없으면 null)
+    private String lockedById; // 현재 편집 중인 사용자 ID (없으면 null)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
