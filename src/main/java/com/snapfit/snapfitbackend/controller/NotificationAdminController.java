@@ -55,6 +55,44 @@ public class NotificationAdminController {
         return ResponseEntity.ok(Map.of("ok", true, "messageId", messageId));
     }
 
+    @GetMapping("/health")
+    public ResponseEntity<?> health(
+            @RequestHeader(value = "X-Admin-Key", required = false) String key) {
+        if (!isAuthorized(key)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "forbidden"));
+        }
+        var result = pushNotificationService.healthCheckDryRun();
+        return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "topic", result.topic(),
+                "messageId", result.messageId(),
+                "attempts", result.attempts(),
+                "durationMs", result.durationMs(),
+                "dryRun", result.dryRun()));
+    }
+
+    @PostMapping("/topic")
+    public ResponseEntity<?> sendToTopic(
+            @RequestHeader(value = "X-Admin-Key", required = false) String key,
+            @RequestBody TopicPushRequest request) {
+        if (!isAuthorized(key)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "forbidden"));
+        }
+        var result = pushNotificationService.sendToTopicWithRetryDetailed(
+                request.topic,
+                request.title,
+                request.body,
+                request.data == null ? Map.of() : request.data,
+                request.dryRun);
+        return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "topic", result.topic(),
+                "messageId", result.messageId(),
+                "attempts", result.attempts(),
+                "durationMs", result.durationMs(),
+                "dryRun", result.dryRun()));
+    }
+
     private boolean isAuthorized(String key) {
         return adminKey != null && !adminKey.isBlank() && adminKey.equals(key);
     }
@@ -74,5 +112,13 @@ public class NotificationAdminController {
         public Long albumId;
         public String commenter;
         public String preview;
+    }
+
+    public static class TopicPushRequest {
+        public String topic;
+        public String title;
+        public String body;
+        public boolean dryRun = false;
+        public Map<String, String> data;
     }
 }

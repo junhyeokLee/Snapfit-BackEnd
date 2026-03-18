@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @Slf4j
@@ -18,6 +19,14 @@ public class PushNotificationService {
     public static final String TOPIC_INVITE = "snapfit_invite_updates";
     public static final String TOPIC_COMMENT = "snapfit_comment_updates";
     public static final String TOPIC_TEMPLATE_NEW = "snapfit_template_new";
+
+    public record PushSendResult(
+            String topic,
+            String messageId,
+            int attempts,
+            long durationMs,
+            boolean dryRun) {
+    }
 
     public String notifyTemplatePublished(Long templateId, String templateTitle) {
         Map<String, String> data = new HashMap<>();
@@ -79,23 +88,35 @@ public class PushNotificationService {
     }
 
     public String sendToTopicWithRetry(String topic, String title, String body, Map<String, String> data) {
+        return sendToTopicWithRetryDetailed(topic, title, body, data, false).messageId();
+    }
+
+    public PushSendResult sendToTopicWithRetryDetailed(
+            String topic,
+            String title,
+            String body,
+            Map<String, String> data,
+            boolean dryRun) {
         final int maxAttempts = 3;
         long backoffMs = 500L;
+        final long startedAt = System.currentTimeMillis();
         RuntimeException lastException = null;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 Message message = Message.builder()
-                        .setTopic(topic)
+                        .setTopic(Objects.requireNonNull(topic))
                         .setNotification(Notification.builder()
-                                .setTitle(title)
-                                .setBody(body)
+                                .setTitle(title == null ? "" : title)
+                                .setBody(body == null ? "" : body)
                                 .build())
                         .putAllData(data == null ? Map.of() : data)
                         .build();
-                String messageId = FirebaseMessaging.getInstance().send(message);
-                log.info("FCM sent. topic={}, attempt={}, messageId={}", topic, attempt, messageId);
-                return messageId;
+                String messageId = FirebaseMessaging.getInstance().send(message, dryRun);
+                long duration = System.currentTimeMillis() - startedAt;
+                log.info("FCM sent. topic={}, attempt={}, dryRun={}, durationMs={}, messageId={}",
+                        topic, attempt, dryRun, duration, messageId);
+                return new PushSendResult(topic, messageId, attempt, duration, dryRun);
             } catch (FirebaseMessagingException e) {
                 log.error("FCM send failed. topic={}, attempt={}, code={}, msg={}",
                         topic, attempt, e.getErrorCode(), e.getMessage());
@@ -117,5 +138,17 @@ public class PushNotificationService {
         }
 
         throw lastException == null ? new RuntimeException("FCM send failed") : lastException;
+    }
+
+    public PushSendResult healthCheckDryRun() {
+        Map<String, String> data = Map.of(
+                "type", "health_check",
+                "source", "snapfit-backend");
+        return sendToTopicWithRetryDetailed(
+                TOPIC_TEMPLATE_NEW,
+                "[DryRun] SnapFit Push Health",
+                "FCM 자격/전송 경로 점검",
+                data,
+                true);
     }
 }
