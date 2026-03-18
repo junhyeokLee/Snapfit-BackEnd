@@ -39,6 +39,18 @@ public class TemplateEntity {
 
     private boolean isPremium;
 
+    @Column(length = 40)
+    private String category;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String tagsJson; // JSON array of strings
+
+    private Integer weeklyScore;
+
+    private java.time.LocalDateTime newUntil;
+
+    private Boolean active;
+
     // This JSON stores the full structure to create an album (pages, layers, etc.)
     @Lob
     @Column(columnDefinition = "LONGTEXT")
@@ -51,6 +63,12 @@ public class TemplateEntity {
     public void onCreate() {
         this.createdAt = java.time.LocalDateTime.now();
         this.updatedAt = this.createdAt;
+        if (this.active == null) {
+            this.active = true;
+        }
+        if (this.weeklyScore == null) {
+            this.weeklyScore = 0;
+        }
     }
 
     @PreUpdate

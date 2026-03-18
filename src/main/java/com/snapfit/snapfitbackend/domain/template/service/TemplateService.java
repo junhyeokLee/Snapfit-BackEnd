@@ -14,8 +14,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -31,6 +34,8 @@ public class TemplateService {
     @Transactional(readOnly = true)
     public List<TemplateResponse> getAllTemplates(String userId) {
         return templateRepository.findAll().stream()
+                .filter(this::isActive)
+                .sorted(this::compareTemplateRanking)
                 .map(entity -> {
                     boolean isLiked = false;
                     if (userId != null && !userId.isEmpty()) {
@@ -45,6 +50,9 @@ public class TemplateService {
     public TemplateResponse getTemplateDetail(Long id, String userId) {
         TemplateEntity template = templateRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Template not found: " + id));
+        if (!isActive(template)) {
+            throw new IllegalArgumentException("Template is inactive: " + id);
+        }
 
         boolean isLiked = false;
         if (userId != null && !userId.isEmpty()) {
@@ -77,9 +85,12 @@ public class TemplateService {
 
     @Transactional
     public AlbumEntity createAlbumFromTemplate(Long templateId, String userId,
-            java.util.Map<String, String> replacements) {
+            Map<String, String> replacements) {
         TemplateEntity template = templateRepository.findById(templateId)
                 .orElseThrow(() -> new IllegalArgumentException("Template not found: " + templateId));
+        if (!isActive(template)) {
+            throw new IllegalArgumentException("Template is inactive: " + templateId);
+        }
 
         // 1. Parse templateJson to extract album structure
         JsonNode root;
@@ -135,6 +146,82 @@ public class TemplateService {
         return album;
     }
 
+    @Transactional
+    public TemplateEntity upsertTemplateFromAdmin(TemplateEntity input) {
+        validateTemplateInput(input);
+        TemplateEntity target;
+        if (input.getId() != null) {
+            target = templateRepository.findById(input.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Template not found: " + input.getId()));
+        } else {
+            target = new TemplateEntity();
+        }
+
+        target.setTitle(input.getTitle().trim());
+        target.setSubTitle(input.getSubTitle());
+        target.setDescription(input.getDescription());
+        target.setCoverImageUrl(input.getCoverImageUrl());
+        target.setPreviewImagesJson(input.getPreviewImagesJson());
+        target.setPageCount(input.getPageCount());
+        target.setLikeCount(Math.max(0, input.getLikeCount()));
+        target.setUserCount(Math.max(0, input.getUserCount()));
+        target.setBest(input.isBest());
+        target.setPremium(input.isPremium());
+        target.setCategory(normalizeCategory(input.getCategory()));
+        target.setTagsJson(input.getTagsJson());
+        target.setWeeklyScore(input.getWeeklyScore() == null ? 0 : Math.max(0, input.getWeeklyScore()));
+        target.setNewUntil(input.getNewUntil());
+        target.setActive(input.getActive() == null ? true : input.getActive());
+        target.setTemplateJson(input.getTemplateJson());
+        return templateRepository.save(target);
+    }
+
+    private void validateTemplateInput(TemplateEntity input) {
+        if (input.getTitle() == null || input.getTitle().trim().isEmpty()) {
+            throw new IllegalArgumentException("title is required");
+        }
+        if (input.getCoverImageUrl() == null || input.getCoverImageUrl().trim().isEmpty()) {
+            throw new IllegalArgumentException("coverImageUrl is required");
+        }
+        if (input.getPageCount() <= 0) {
+            throw new IllegalArgumentException("pageCount must be greater than 0");
+        }
+        if (input.getTemplateJson() == null || input.getTemplateJson().trim().isEmpty()) {
+            throw new IllegalArgumentException("templateJson is required");
+        }
+        ensureValidTemplateJson(input.getTemplateJson());
+        ensureValidJsonArray(input.getPreviewImagesJson(), "previewImagesJson");
+        ensureValidJsonArray(input.getTagsJson(), "tagsJson");
+    }
+
+    private void ensureValidTemplateJson(String templateJson) {
+        try {
+            JsonNode root = objectMapper.readTree(templateJson);
+            if (root.path("cover").isMissingNode() || !root.path("cover").path("layers").isArray()) {
+                throw new IllegalArgumentException("templateJson.cover.layers must be array");
+            }
+            if (!root.path("pages").isArray()) {
+                throw new IllegalArgumentException("templateJson.pages must be array");
+            }
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("templateJson is not valid JSON", e);
+        }
+    }
+
+    private void ensureValidJsonArray(String value, String field) {
+        if (value == null || value.trim().isEmpty()) {
+            return;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(value);
+            if (!node.isArray()) {
+                throw new IllegalArgumentException(field + " must be JSON array");
+            }
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException(field + " is not valid JSON", e);
+        }
+    }
+
     private void applyReplacements(JsonNode root, java.util.Map<String, String> replacements) {
         // Handle cover layers
         JsonNode coverLayers = root.path("cover").path("layers");
@@ -181,6 +268,7 @@ public class TemplateService {
 
     private TemplateResponse convertToResponse(TemplateEntity entity, boolean isLiked) {
         List<String> previewImages = new ArrayList<>();
+        List<String> tags = new ArrayList<>();
         try {
             if (entity.getPreviewImagesJson() != null) {
                 JsonNode imagesNode = objectMapper.readTree(entity.getPreviewImagesJson());
@@ -190,10 +278,40 @@ public class TemplateService {
                     }
                 }
             }
+            if (entity.getTagsJson() != null) {
+                JsonNode tagsNode = objectMapper.readTree(entity.getTagsJson());
+                if (tagsNode.isArray()) {
+                    for (JsonNode node : tagsNode) {
+                        tags.add(node.asText());
+                    }
+                }
+            }
         } catch (JsonProcessingException e) {
             // Log error or ignore
         }
 
-        return TemplateResponse.from(entity, previewImages, isLiked);
+        boolean isNew = entity.getNewUntil() != null && entity.getNewUntil().isAfter(LocalDateTime.now());
+        return TemplateResponse.from(entity, previewImages, tags, isLiked, isNew);
+    }
+
+    private String normalizeCategory(String category) {
+        if (category == null || category.trim().isEmpty()) {
+            return "여행";
+        }
+        return category.trim();
+    }
+
+    private boolean isActive(TemplateEntity entity) {
+        return entity.getActive() == null || entity.getActive();
+    }
+
+    private int compareTemplateRanking(TemplateEntity a, TemplateEntity b) {
+        Comparator<TemplateEntity> comparator = Comparator
+                .comparing((TemplateEntity t) -> t.getWeeklyScore() == null ? 0 : t.getWeeklyScore())
+                .thenComparing(TemplateEntity::getLikeCount)
+                .thenComparing(TemplateEntity::getUserCount)
+                .thenComparing(TemplateEntity::getCreatedAt, Comparator.nullsLast(LocalDateTime::compareTo))
+                .thenComparing(TemplateEntity::getId, Comparator.nullsLast(Long::compareTo));
+        return comparator.reversed().compare(a, b);
     }
 }
