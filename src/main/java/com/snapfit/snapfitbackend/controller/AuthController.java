@@ -6,13 +6,17 @@ import com.snapfit.snapfitbackend.domain.auth.dto.KakaoLoginRequest;
 import com.snapfit.snapfitbackend.domain.auth.dto.RefreshRequest;
 import com.snapfit.snapfitbackend.domain.auth.dto.UserInfo;
 import com.snapfit.snapfitbackend.domain.auth.service.AuthService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
+@Slf4j
 public class AuthController {
 
     private final AuthService authService;
@@ -47,7 +51,7 @@ public class AuthController {
      */
     @RequestMapping(value = "/profile", method = { RequestMethod.PATCH,
             RequestMethod.POST }, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<UserInfo> updateProfile(
+    public ResponseEntity<?> updateProfile(
             @RequestHeader(value = "Authorization") String authorization,
             @RequestPart(value = "name", required = false) String name,
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImage) {
@@ -58,7 +62,14 @@ public class AuthController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(401).build();
         } catch (Exception e) {
-            return ResponseEntity.status(500).build();
+            log.error("Profile update failed. namePresent={}, imagePresent={}, imageSize={}",
+                    name != null && !name.isBlank(),
+                    profileImage != null && !profileImage.isEmpty(),
+                    profileImage != null ? profileImage.getSize() : 0L,
+                    e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "PROFILE_UPLOAD_FAILED",
+                    "message", e.getMessage() == null ? "internal error" : e.getMessage()));
         }
     }
 }

@@ -28,6 +28,10 @@ management:
     redis:
       enabled: false
 
+snapfit:
+  storage:
+    local-dir: ${SNAPFIT_LOCAL_STORAGE_DIR:/tmp/snapfit-uploads}
+
 server:
   port: 8080
   # 외부 접근을 위해 모든 네트워크 인터페이스(0.0.0.0)에 바인딩

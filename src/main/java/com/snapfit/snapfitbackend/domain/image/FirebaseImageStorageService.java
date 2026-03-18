@@ -1,10 +1,19 @@
 package com.snapfit.snapfitbackend.domain.image;
 
 import com.google.cloud.storage.Blob;
+import com.google.firebase.FirebaseApp;
 import com.google.firebase.cloud.StorageClient;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
 
 /**
  * prod 환경에서 실제 Firebase Storage 에서 이미지를 삭제하는 구현체.
@@ -24,6 +33,9 @@ public class FirebaseImageStorageService implements ImageStorageService {
     @org.springframework.beans.factory.annotation.Value("${firebase.storage.bucket}")
     private String bucketName;
 
+    @Value("${snapfit.storage.local-dir:/tmp/snapfit-uploads}")
+    private String localStorageDir;
+
     @Override
     public String upload(org.springframework.web.multipart.MultipartFile file, String directory) {
         if (file.isEmpty()) {
@@ -31,6 +43,11 @@ public class FirebaseImageStorageService implements ImageStorageService {
         }
 
         try {
+            if (bucketName == null || bucketName.isBlank() || FirebaseApp.getApps().isEmpty()) {
+                log.warn("Firebase not initialized or bucket is empty. Falling back to local storage.");
+                return uploadToLocalFallback(file, directory);
+            }
+
             String originalFilename = file.getOriginalFilename();
             String extension = "";
             if (originalFilename != null && originalFilename.contains(".")) {
@@ -51,7 +68,7 @@ public class FirebaseImageStorageService implements ImageStorageService {
                     java.net.URLEncoder.encode(filename, java.nio.charset.StandardCharsets.UTF_8));
         } catch (Exception e) {
             log.error("Failed to upload image to Firebase Storage", e);
-            throw new RuntimeException("Failed to upload image", e);
+            return uploadToLocalFallback(file, directory);
         }
     }
 
@@ -79,6 +96,30 @@ public class FirebaseImageStorageService implements ImageStorageService {
         } catch (Exception e) {
             // 운영 환경에서는 실패 로그만 남기고 서비스 로직은 계속 진행
             log.error("Failed to delete image from Firebase Storage. url={}", url, e);
+        }
+    }
+
+    private String uploadToLocalFallback(org.springframework.web.multipart.MultipartFile file, String directory) {
+        try {
+            File dir = new File(localStorageDir + File.separator + directory);
+            if (!dir.exists() && !dir.mkdirs()) {
+                throw new RuntimeException("Failed to create local upload directory");
+            }
+
+            String originalFilename = file.getOriginalFilename();
+            String extension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+            String filename = UUID.randomUUID() + extension;
+            Path path = Paths.get(localStorageDir, directory, filename);
+            Files.write(path, file.getBytes());
+
+            String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+            log.warn("Profile image stored using local fallback path={}", path);
+            return baseUrl + "/images/" + directory + "/" + filename;
+        } catch (Exception fallbackError) {
+            throw new RuntimeException("Failed to upload image (firebase and local fallback both failed)", fallbackError);
         }
     }
 

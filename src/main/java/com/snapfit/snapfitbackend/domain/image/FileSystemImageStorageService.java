@@ -1,6 +1,7 @@
 package com.snapfit.snapfitbackend.domain.image;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,8 @@ import java.util.UUID;
 @Profile("!prod")
 public class FileSystemImageStorageService implements ImageStorageService {
 
-    private final String uploadDir = "uploads";
+    @Value("${snapfit.storage.local-dir:/tmp/snapfit-uploads}")
+    private String localStorageDir;
 
     @Override
     public String upload(MultipartFile file, String directory) {
@@ -32,9 +34,9 @@ public class FileSystemImageStorageService implements ImageStorageService {
         }
 
         try {
-            File dir = new File(uploadDir + File.separator + directory);
-            if (!dir.exists()) {
-                dir.mkdirs();
+            File dir = new File(localStorageDir + File.separator + directory);
+            if (!dir.exists() && !dir.mkdirs()) {
+                throw new RuntimeException("Failed to create local upload directory: " + dir.getAbsolutePath());
             }
 
             String originalFilename = file.getOriginalFilename();
@@ -43,7 +45,7 @@ public class FileSystemImageStorageService implements ImageStorageService {
                 extension = originalFilename.substring(originalFilename.lastIndexOf("."));
             }
             String filename = UUID.randomUUID() + extension;
-            Path path = Paths.get(uploadDir, directory, filename);
+            Path path = Paths.get(localStorageDir, directory, filename);
             Files.write(path, file.getBytes());
 
             String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
