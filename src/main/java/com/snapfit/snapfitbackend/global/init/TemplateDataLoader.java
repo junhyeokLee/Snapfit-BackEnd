@@ -3,6 +3,7 @@ package com.snapfit.snapfitbackend.global.init;
 import com.snapfit.snapfitbackend.domain.template.entity.TemplateEntity;
 import com.snapfit.snapfitbackend.domain.template.repository.TemplateRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -10,6 +11,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class TemplateDataLoader implements CommandLineRunner {
 
         private final TemplateRepository templateRepository;
@@ -70,7 +72,7 @@ public class TemplateDataLoader implements CommandLineRunner {
                                 .build();
 
                 templateRepository.saveAll(List.of(t1, t2, t3));
-                System.out.println("Initialized 3 templates with realistic data.");
+                log.info("Initialized 3 templates with realistic data.");
         }
 
         private void updateExistingTemplates() {
@@ -109,7 +111,7 @@ public class TemplateDataLoader implements CommandLineRunner {
 
                 if (updated) {
                         templateRepository.saveAll(templates);
-                        System.out.println("Updated existing templates with realistic data.");
+                        log.info("Updated existing templates with realistic data.");
                 }
         }
 
