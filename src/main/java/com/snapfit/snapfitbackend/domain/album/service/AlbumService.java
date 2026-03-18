@@ -10,6 +10,7 @@ import com.snapfit.snapfitbackend.domain.album.repository.AlbumPageRepository;
 import com.snapfit.snapfitbackend.domain.album.repository.AlbumRepository;
 import com.snapfit.snapfitbackend.domain.auth.repository.UserRepository;
 import com.snapfit.snapfitbackend.domain.image.ImageStorageService;
+import com.snapfit.snapfitbackend.domain.notification.service.PushNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,7 @@ public class AlbumService {
     private final ObjectMapper objectMapper;
     private final AlbumLockService albumLockService;
     private final UserRepository userRepository;
+    private final PushNotificationService pushNotificationService;
 
     /**
      * 앨범 편집 잠금 (진입 시)
@@ -278,7 +280,13 @@ public class AlbumService {
                 .invitedBy(ownerId)
                 .inviteToken(token)
                 .build();
-        return albumMemberRepository.save(member);
+        AlbumMemberEntity saved = albumMemberRepository.save(member);
+        try {
+            pushNotificationService.notifyInviteCreated(album.getId(), album.getTitle(), token);
+        } catch (Exception e) {
+            // 알림 실패는 핵심 비즈니스 로직을 막지 않음
+        }
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -307,7 +315,16 @@ public class AlbumService {
         invite.setUserId(userId);
         invite.setStatus(AlbumMemberStatus.ACCEPTED);
         invite.setInviteToken(null);
-        return albumMemberRepository.save(invite);
+        AlbumMemberEntity saved = albumMemberRepository.save(invite);
+        try {
+            pushNotificationService.notifyInviteAccepted(
+                    saved.getAlbum().getId(),
+                    saved.getAlbum().getTitle(),
+                    userId);
+        } catch (Exception e) {
+            // 알림 실패는 핵심 비즈니스 로직을 막지 않음
+        }
+        return saved;
     }
 
     @Transactional(readOnly = true)

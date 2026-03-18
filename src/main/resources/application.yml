@@ -31,6 +31,8 @@ management:
 snapfit:
   storage:
     local-dir: ${SNAPFIT_LOCAL_STORAGE_DIR:/tmp/snapfit-uploads}
+  push:
+    admin-key: ${SNAPFIT_PUSH_ADMIN_KEY:}
 
 server:
   port: 8080
