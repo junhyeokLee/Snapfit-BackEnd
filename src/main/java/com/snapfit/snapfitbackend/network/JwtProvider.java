@@ -14,16 +14,10 @@ public class JwtProvider {
 
     @javax.annotation.PostConstruct
     protected void init() {
-        // Base64 encoded key or just string bytes depending on preference.
-        // For HS256, key length should be >= 256 bits (32 chars).
-        // If the secret is short, we can pad or hash it, but better to enforce strong
-        // key.
-        byte[] keyBytes = java.nio.charset.StandardCharsets.UTF_8.encode(secretKey).array();
-        // If provided key is too weak, Keys.hmacShaKeyFor might complain or weak
-        // security.
-        // For simplicity in this demo transition, we use the provided string directly
-        // if long enough,
-        // or fall back to safe generation if missing (but log warning).
+        // IMPORTANT: Use exact UTF-8 bytes.
+        // ByteBuffer#array() from UTF_8.encode may include extra trailing zero bytes,
+        // which breaks token interoperability and validation consistency.
+        byte[] keyBytes = secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 

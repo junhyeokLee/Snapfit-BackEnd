@@ -3,6 +3,7 @@ package com.snapfit.snapfitbackend.domain.template.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snapfit.snapfitbackend.domain.album.entity.AlbumEntity;
 import com.snapfit.snapfitbackend.domain.album.service.AlbumService;
+import com.snapfit.snapfitbackend.domain.billing.service.BillingService;
 import com.snapfit.snapfitbackend.domain.template.entity.TemplateEntity;
 import com.snapfit.snapfitbackend.domain.template.entity.TemplateLikeEntity;
 import com.snapfit.snapfitbackend.domain.template.repository.TemplateLikeRepository;
@@ -31,6 +32,8 @@ class TemplateServiceTest {
     private TemplateLikeRepository templateLikeRepository;
     @Mock
     private AlbumService albumService;
+    @Mock
+    private BillingService billingService;
 
     private TemplateService templateService;
 
@@ -40,7 +43,8 @@ class TemplateServiceTest {
                 templateRepository,
                 templateLikeRepository,
                 albumService,
-                new ObjectMapper()
+                new ObjectMapper(),
+                billingService
         );
     }
 
@@ -80,11 +84,13 @@ class TemplateServiceTest {
                 .title("Template A")
                 .pageCount(2)
                 .coverImageUrl("cover-url")
+                .isPremium(true)
                 .templateJson(json)
                 .userCount(0)
                 .build();
 
         when(templateRepository.findById(5L)).thenReturn(Optional.of(template));
+        when(billingService.hasActiveSubscription("user-1")).thenReturn(true);
         when(albumService.createAlbum(
                 eq("user-1"),
                 eq("3:4"),

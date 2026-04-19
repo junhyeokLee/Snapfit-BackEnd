@@ -13,12 +13,14 @@ import java.util.Objects;
 
 @Service
 @Slf4j
+@lombok.RequiredArgsConstructor
 public class PushNotificationService {
 
     public static final String TOPIC_ORDER = "snapfit_order_updates";
     public static final String TOPIC_INVITE = "snapfit_invite_updates";
     public static final String TOPIC_COMMENT = "snapfit_comment_updates";
     public static final String TOPIC_TEMPLATE_NEW = "snapfit_template_new";
+    private final NotificationInboxService notificationInboxService;
 
     public record PushSendResult(
             String topic,
@@ -64,10 +66,29 @@ public class PushNotificationService {
     }
 
     public String notifyOrderStatus(String orderId, String status, String messageBody) {
+        return notifyOrderStatus(orderId, status, messageBody, null, null, null);
+    }
+
+    public String notifyOrderStatus(
+            String orderId,
+            String status,
+            String messageBody,
+            String deeplink,
+            String courier,
+            String trackingNumber) {
         Map<String, String> data = new HashMap<>();
         data.put("type", "order_status");
         data.put("orderId", orderId);
         data.put("status", status);
+        if (deeplink != null && !deeplink.isBlank()) {
+            data.put("deeplink", deeplink);
+        }
+        if (courier != null && !courier.isBlank()) {
+            data.put("courier", courier);
+        }
+        if (trackingNumber != null && !trackingNumber.isBlank()) {
+            data.put("trackingNumber", trackingNumber);
+        }
         return sendToTopicWithRetry(
                 TOPIC_ORDER,
                 "주문 상태가 변경되었어요",
@@ -114,6 +135,15 @@ public class PushNotificationService {
                         .build();
                 String messageId = FirebaseMessaging.getInstance().send(message, dryRun);
                 long duration = System.currentTimeMillis() - startedAt;
+                if (!dryRun) {
+                    notificationInboxService.recordBroadcast(
+                            data == null ? "general" : data.getOrDefault("type", "general"),
+                            title,
+                            body,
+                            topic,
+                            data == null ? null : data.get("deeplink"),
+                            data == null ? Map.of() : data);
+                }
                 log.info("FCM sent. topic={}, attempt={}, dryRun={}, durationMs={}, messageId={}",
                         topic, attempt, dryRun, duration, messageId);
                 return new PushSendResult(topic, messageId, attempt, duration, dryRun);

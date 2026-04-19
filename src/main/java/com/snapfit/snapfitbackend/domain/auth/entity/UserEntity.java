@@ -34,6 +34,18 @@ public class UserEntity {
     @Column(name = "provider", length = 50)
     private String provider;
 
+    @Column(name = "terms_version", length = 50)
+    private String termsVersion;
+
+    @Column(name = "privacy_version", length = 50)
+    private String privacyVersion;
+
+    @Column(name = "marketing_opt_in")
+    private Boolean marketingOptIn;
+
+    @Column(name = "consented_at")
+    private LocalDateTime consentedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

@@ -1,12 +1,21 @@
 package com.snapfit.snapfitbackend.domain.auth.service;
 
 import com.snapfit.snapfitbackend.domain.auth.dto.AuthResponse;
+import com.snapfit.snapfitbackend.domain.auth.dto.ConsentUpdateRequest;
 import com.snapfit.snapfitbackend.domain.auth.dto.UserInfo;
 import com.snapfit.snapfitbackend.domain.auth.entity.RefreshToken;
 import com.snapfit.snapfitbackend.domain.auth.entity.UserEntity;
 import com.snapfit.snapfitbackend.domain.auth.repository.RefreshTokenRepository;
 import com.snapfit.snapfitbackend.domain.auth.repository.UserRepository;
+import com.snapfit.snapfitbackend.domain.album.repository.AlbumRepository;
+import com.snapfit.snapfitbackend.domain.album.repository.AlbumMemberRepository;
+import com.snapfit.snapfitbackend.domain.album.service.AlbumService;
+import com.snapfit.snapfitbackend.domain.billing.repository.BillingOrderRepository;
+import com.snapfit.snapfitbackend.domain.billing.repository.SubscriptionRepository;
 import com.snapfit.snapfitbackend.domain.image.ImageStorageService;
+import com.snapfit.snapfitbackend.domain.notification.repository.NotificationReadRepository;
+import com.snapfit.snapfitbackend.domain.order.repository.OrderRepository;
+import com.snapfit.snapfitbackend.domain.template.repository.TemplateLikeRepository;
 import com.snapfit.snapfitbackend.network.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +34,14 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final ImageStorageService imageStorageService;
     private final org.springframework.web.client.RestTemplate restTemplate;
+    private final AlbumService albumService;
+    private final AlbumRepository albumRepository;
+    private final AlbumMemberRepository albumMemberRepository;
+    private final OrderRepository orderRepository;
+    private final BillingOrderRepository billingOrderRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final NotificationReadRepository notificationReadRepository;
+    private final TemplateLikeRepository templateLikeRepository;
 
     @Transactional
     public AuthResponse loginWithKakao(String accessToken) {
@@ -94,7 +112,14 @@ public class AuthService {
         } else {
             // [Optional] 로그인 시마다 정보 갱신 (선택 사항)
             boolean updated = false;
-            if (profileImage != null && !profileImage.equals(userEntity.getProfileImageUrl())) {
+            if (email != null && !email.isBlank() && !email.equals(userEntity.getEmail())) {
+                userEntity.setEmail(email);
+                updated = true;
+            }
+            // 사용자가 앱에서 직접 변경한 프로필 이미지를 보존하기 위해,
+            // 기존 프로필이 비어있을 때만 소셜 프로필 이미지로 초기화한다.
+            if ((userEntity.getProfileImageUrl() == null || userEntity.getProfileImageUrl().isBlank())
+                    && profileImage != null && !profileImage.isBlank()) {
                 userEntity.setProfileImageUrl(profileImage);
                 updated = true;
             }
@@ -209,5 +234,88 @@ public class AuthService {
                 .expiresIn(3600)
                 .user(userInfo)
                 .build();
+    }
+
+    @Transactional
+    public void deleteAccount(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("Invalid authorization header");
+        }
+        String jwt = authorization.substring(7);
+        if (!jwtProvider.validateToken(jwt)) {
+            throw new IllegalArgumentException("Invalid access token");
+        }
+
+        String userId = jwtProvider.getUserId(jwt);
+        Long userIdLong = Long.parseLong(userId);
+        UserEntity user = userRepository.findById(userIdLong).orElse(null);
+
+        // 1) 소유 앨범 정리 (스토리지/DB 연쇄 삭제)
+        var ownedAlbums = albumRepository.findByUserIdOrderByOrdersAscCreatedAtDesc(userId);
+        for (var album : ownedAlbums) {
+            try {
+                albumService.deleteAlbum(album.getId(), userId);
+            } catch (Exception ignored) {
+                // 탈퇴는 계속 진행
+            }
+        }
+
+        // 2) 공유 앨범 멤버십 제거
+        albumMemberRepository.deleteByUserId(userId);
+
+        // 3) 주문/구독/알림읽음/리프레시토큰/유저 제거
+        orderRepository.deleteByUserId(userId);
+        billingOrderRepository.deleteByUserId(userId);
+        subscriptionRepository.deleteById(userId);
+        templateLikeRepository.deleteByUserId(userId);
+        notificationReadRepository.deleteByUserId(userId);
+        refreshTokenRepository.deleteByUserId(userIdLong);
+        userRepository.deleteById(userIdLong);
+
+        // 4) 프로필 이미지 정리
+        if (user != null && user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
+            try {
+                imageStorageService.delete(user.getProfileImageUrl());
+            } catch (Exception ignored) {
+                // 탈퇴는 계속 진행
+            }
+        }
+    }
+
+    @Transactional
+    public void updateConsents(String authorization, ConsentUpdateRequest request) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("Invalid authorization header");
+        }
+        String jwt = authorization.substring(7);
+        if (!jwtProvider.validateToken(jwt)) {
+            throw new IllegalArgumentException("Invalid access token");
+        }
+        String userId = jwtProvider.getUserId(jwt);
+        Long userIdLong = Long.parseLong(userId);
+        UserEntity user = userRepository.findById(userIdLong)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (request != null) {
+            if (request.getTermsVersion() != null && !request.getTermsVersion().isBlank()) {
+                user.setTermsVersion(request.getTermsVersion().trim());
+            }
+            if (request.getPrivacyVersion() != null && !request.getPrivacyVersion().isBlank()) {
+                user.setPrivacyVersion(request.getPrivacyVersion().trim());
+            }
+            if (request.getMarketingOptIn() != null) {
+                user.setMarketingOptIn(request.getMarketingOptIn());
+            }
+            if (request.getAgreedAt() != null && !request.getAgreedAt().isBlank()) {
+                try {
+                    user.setConsentedAt(OffsetDateTime.parse(request.getAgreedAt()).toLocalDateTime());
+                } catch (Exception ignored) {
+                    user.setConsentedAt(LocalDateTime.now());
+                }
+            } else if (user.getConsentedAt() == null) {
+                user.setConsentedAt(LocalDateTime.now());
+            }
+        }
+        userRepository.save(user);
     }
 }

@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SnapFit Admin</title>
+  <style>
+    :root{
+      --bg:#f4f7fb;
+      --card:#ffffff;
+      --line:#dde4ef;
+      --txt:#16202b;
+      --sub:#66778d;
+      --primary:#07b8de;
+      --primary-deep:#028fb0;
+      --primary-soft:#e9faff;
+      --danger:#ef5c5c;
+      --shadow:0 10px 28px rgba(19,30,45,.08);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#eef4fb 0,#f6f9fd 35%,#f4f7fb 100%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--txt)}
+    .wrap{max-width:1200px;margin:0 auto;padding:18px}
+    .card{background:var(--card);border:1px solid #e8eef7;border-radius:16px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px}
+    .header-card{position:sticky;top:0;z-index:30}
+    h1{margin:0 0 8px;font-size:21px}
+    h2{margin:0 0 10px;font-size:16px}
+    .sub{font-size:12px;color:var(--sub)}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    input,textarea,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 11px;font-size:14px;background:#fff;color:#243142}
+    textarea{min-height:130px;resize:vertical}
+    button{border:0;border-radius:10px;padding:10px 12px;font-weight:800;background:var(--primary);color:#fff;cursor:pointer;transition:all .15s ease}
+    button:hover{transform:translateY(-1px);background:var(--primary-deep)}
+    button.secondary{background:#5f728d}
+    button.warn{background:var(--danger)}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+    .metric{background:var(--primary-soft);border:1px solid #d7edf7;border-radius:12px;padding:10px}
+    .metric .label{font-size:12px;color:#62839a}
+    .metric .value{margin-top:4px;font-size:21px;font-weight:900;color:#174664}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:980px){.grid-2{grid-template-columns:1fr}}
+    .section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:9px;border-bottom:1px solid #edf2f8;font-size:13px;vertical-align:top}
+    th{color:#62758e;font-weight:800}
+    .chip{display:inline-block;padding:3px 8px;border-radius:999px;background:#ecf4ff;color:#265b9a;font-size:11px;font-weight:800}
+    .chip.high{background:#ffe7e7;color:#b53333}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:800px){.split{grid-template-columns:1fr}}
+    .muted{color:var(--sub);font-size:12px}
+    .ok{color:#198754;font-weight:700}
+    .err{color:#c93f3f;font-weight:700}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .tab-btn{background:#e7eef8;color:#405a77}
+    .tab-btn.active{background:var(--primary);color:#fff}
+    .panel{display:none}
+    .panel.active{display:block}
+    .toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+    .badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:800;background:#eef5ff;color:#2b5ea4}
+    .help{font-size:12px;color:#5f738d;background:#f4f8ff;border:1px solid #dbe7fb;border-radius:10px;padding:8px 10px}
+    .template-layout{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:980px){.template-layout{grid-template-columns:1fr}}
+    .head-meta{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+    .toast{position:fixed;right:18px;bottom:18px;background:#13263b;color:#fff;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:700;opacity:0;pointer-events:none;transform:translateY(8px);transition:all .2s ease;z-index:1000}
+    .toast.show{opacity:1;transform:translateY(0)}
+    .loading-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#09b3d3;animation:pulse 1s infinite ease-in-out}
+    @keyframes pulse{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
+    .pill-group{display:flex;gap:6px;flex-wrap:wrap}
+    .pill{padding:6px 10px;border-radius:999px;border:1px solid #d7e4f5;background:#f5f9ff;color:#3d5875;font-size:12px;font-weight:700;cursor:pointer}
+    .pill.active{background:#09b3d3;color:#fff;border-color:#09b3d3}
+    .file-note{font-size:12px;color:#536a86}
+    .panel-lite{background:#fbfdff;border:1px solid #e4edf8;border-radius:12px;padding:10px}
+    .hidden{display:none !important}
+    .pagination{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card header-card">
+    <div class="head-meta">
+      <h1>SnapFit 운영센터</h1>
+      <div class="muted">마지막 동기화: <span id="lastSyncAt">-</span></div>
+    </div>
+    <div class="row">
+      <button class="secondary" onclick="reloadAll()">전체 새로고침</button>
+    </div>
+    <div class="tabs">
+      <button id="tab-dashboard" class="tab-btn active" onclick="openPanel('dashboard')">대시보드</button>
+      <button id="tab-orders" class="tab-btn" onclick="openPanel('orders')">주문</button>
+      <button id="tab-cs" class="tab-btn" onclick="openPanel('cs')">CS 로그</button>
+      <button id="tab-templates" class="tab-btn" onclick="openPanel('templates')">템플릿 운영</button>
+    </div>
+    <div id="status" class="sub" style="margin-top:8px">자동 연결 준비중</div>
+  </div>
+
+  <div id="panel-dashboard" class="card panel active">
+    <h2>대시보드</h2>
+    <div id="metrics" class="metrics"></div>
+  </div>
+
+  <div id="panel-orders" class="card panel">
+    <div class="section-title"><h2>주문 관리 <span class="badge">실시간 운영</span></h2></div>
+    <div class="pill-group" style="margin-bottom:8px" id="orderStatusPills">
+      <button class="pill active" data-status="" onclick="setOrderStatusFilter('')">전체</button>
+      <button class="pill" data-status="PAYMENT_PENDING" onclick="setOrderStatusFilter('PAYMENT_PENDING')">결제대기</button>
+      <button class="pill" data-status="PAYMENT_COMPLETED" onclick="setOrderStatusFilter('PAYMENT_COMPLETED')">결제완료</button>
+      <button class="pill" data-status="IN_PRODUCTION" onclick="setOrderStatusFilter('IN_PRODUCTION')">제작중</button>
+      <button class="pill" data-status="SHIPPING" onclick="setOrderStatusFilter('SHIPPING')">배송중</button>
+      <button class="pill" data-status="DELIVERED" onclick="setOrderStatusFilter('DELIVERED')">배송완료</button>
+      <button class="pill" data-status="CANCELED" onclick="setOrderStatusFilter('CANCELED')">취소</button>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <div style="flex:1;min-width:220px"><input id="orderKeyword" placeholder="주문번호/유저ID/수령인 검색"/></div>
+      <div style="width:170px"><input id="courier" value="CJ대한통운" placeholder="택배사"/></div>
+      <div style="width:220px"><input id="tracking" placeholder="운송장 번호"/></div>
+      <button class="secondary" onclick="loadOrders()">조회</button>
+    </div>
+    <table>
+      <thead><tr><th>주문</th><th>사용자/수령인</th><th>상태</th><th>액션</th></tr></thead>
+      <tbody id="ordersBody"></tbody>
+    </table>
+    <div class="pagination">
+      <button class="secondary" onclick="prevOrdersPage()">이전</button>
+      <span class="muted" id="ordersPageInfo">1 / 1</span>
+      <button class="secondary" onclick="nextOrdersPage()">다음</button>
+    </div>
+  </div>
+
+  <div id="panel-cs" class="card panel">
+    <div class="section-title"><h2>CS 관리</h2></div>
+    <div class="tabs" style="margin-top:0">
+      <button id="cs-tab-signals" class="tab-btn active" onclick="openCsTab('signals')">CS 신호</button>
+      <button id="cs-tab-inquiries" class="tab-btn" onclick="openCsTab('inquiries')">고객 문의</button>
+    </div>
+    <div id="cs-panel-signals" style="margin-top:8px">
+      <table>
+        <thead><tr><th>레벨</th><th>메시지</th><th>식별자</th><th>시각</th></tr></thead>
+        <tbody id="signalsBody"></tbody>
+      </table>
+    </div>
+    <div id="cs-panel-inquiries" class="panel-lite hidden" style="margin-top:8px">
+      <div class="row" style="margin-bottom:8px">
+        <div style="width:140px">
+          <select id="inquiryStatusFilter" onchange="loadInquiries(0)">
+            <option value="">전체 상태</option>
+            <option value="OPEN">OPEN</option>
+            <option value="RESOLVED">RESOLVED</option>
+          </select>
+        </div>
+        <div style="flex:1"><input id="inquiryKeyword" placeholder="유저ID/제목/내용 검색" onkeydown="if(event.key==='Enter'){loadInquiries(0)}"/></div>
+        <button class="secondary" onclick="loadInquiries(0)">조회</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>유저</th><th>문의</th><th>상태</th><th>액션</th></tr></thead>
+        <tbody id="inquiriesBody"></tbody>
+      </table>
+      <div class="pagination">
+        <button class="secondary" onclick="prevInquiriesPage()">이전</button>
+        <span class="muted" id="inquiriesPageInfo">1 / 1</span>
+        <button class="secondary" onclick="nextInquiriesPage()">다음</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-templates" class="panel">
+    <div class="card">
+      <div class="toolbar">
+        <h2 style="margin:0">템플릿 운영</h2>
+        <span class="help">등록은 ID 없이 생성됩니다. 수정은 목록에서 선택한 기존 템플릿에만 반영됩니다.</span>
+      </div>
+      <div class="tabs" style="margin-top:12px">
+        <button id="template-tab-create" class="tab-btn active" onclick="openTemplateTab('create')">신규 등록</button>
+        <button id="template-tab-update" class="tab-btn" onclick="openTemplateTab('update')">기존 수정</button>
+      </div>
+      <div class="template-layout" style="margin-top:10px">
+        <div id="template-form-create" class="card" style="margin:0">
+          <div class="section-title"><h2>템플릿 신규 등록</h2></div>
+          <div class="panel-lite" style="margin-bottom:8px">
+            <div class="row">
+              <div style="flex:1"><input id="quickTitle" placeholder="템플릿 제목만 입력하세요 (예: 봄날 웨딩)"/></div>
+              <div style="flex:1"><input id="quickDescription" placeholder="한 줄 설명 (예: 따뜻한 필름톤, 감성 타이포)"/></div>
+              <div style="width:140px">
+                <select id="quickStyle">
+                  <option value="minimal">미니멀</option>
+                  <option value="romance">로맨틱</option>
+                  <option value="travel">여행</option>
+                  <option value="magazine">매거진</option>
+                  <option value="wedding">웨딩</option>
+                  <option value="kids">키즈</option>
+                  <option value="poster">포스터</option>
+                  <option value="brand">브랜드</option>
+                </select>
+              </div>
+              <button class="secondary" onclick="(async()=>{if(!(await generateQuickDraftFromAi())){generateQuickDraft();}})()">AI 초안 생성</button>
+              <button onclick="quickCreateTemplate()">제목으로 즉시 등록</button>
+            </div>
+            <div class="file-note" style="margin-top:4px">제목 + 스타일만으로 cover/pages JSON을 자동 생성합니다. 필요 시 아래 상세 폼에서 미세 수정 후 등록하세요.</div>
+          </div>
+          <div class="panel-lite">
+            <div style="margin-bottom:8px">
+              <div class="row">
+                <div style="flex:1"><input id="createFigmaFile" type="file" accept=".json,application/json" onchange="importFigmaFileToForm('createFigmaFile','create')"/></div>
+                <button class="secondary" onclick="importFigmaTextareaToForm('create')">Figma JSON 적용</button>
+              </div>
+              <div style="margin-top:8px"><textarea id="createFigmaJson" placeholder="Figma handoff JSON / store JSON / template JSON을 붙여넣으세요"></textarea></div>
+              <div class="file-note" style="margin-top:4px">붙여넣기 또는 파일 업로드 후 "Figma JSON 적용" 클릭 시 제목/커버/페이지수/태그/templateJson이 자동 반영됩니다.</div>
+            </div>
+            <div class="row">
+              <div style="flex:1"><input id="createTitle" placeholder="제목"/></div>
+              <div style="width:130px"><input id="createPageCount" type="number" value="12" placeholder="페이지수"/></div>
+              <div style="width:140px">
+                <select id="createCategory">
+                  <option value="일반">일반</option>
+                  <option value="여행">여행</option>
+                  <option value="웨딩">웨딩</option>
+                  <option value="키즈">키즈</option>
+                  <option value="포스터">포스터</option>
+                  <option value="브랜드">브랜드</option>
+                  <option value="로맨스">로맨스</option>
+                  <option value="매거진">매거진</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:8px"><input id="createCover" placeholder="커버 URL"/></div>
+            <div class="split" style="margin-top:8px">
+              <input id="createPreview" value='[]' placeholder='previewImagesJson'/>
+              <input id="createTags" value='[]' placeholder='tagsJson'/>
+            </div>
+            <div style="margin-top:8px">
+              <input id="createTemplateJsonFile" type="file" accept=".json,application/json" onchange="loadTemplateFileToTextarea('createTemplateJsonFile','createJson')"/>
+              <div class="file-note" style="margin-top:4px">템플릿 JSON 파일 업로드 가능 (권장)</div>
+            </div>
+            <div style="margin-top:8px"><textarea id="createJson" placeholder="templateJson"></textarea></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="secondary" onclick="validateTemplateDraft('create')">유효성 검사</button>
+            <button onclick="createTemplate()">신규 등록</button>
+          </div>
+          <div class="muted" style="margin-top:6px">ID는 자동 생성됩니다. (입력 불필요)</div>
+        </div>
+
+        <div id="template-form-update" class="card" style="margin:0;display:none">
+          <div class="section-title"><h2>템플릿 기존 수정</h2></div>
+          <div class="row">
+            <div style="flex:1"><input id="templateSearch" placeholder="템플릿 제목 검색" oninput="filterTemplateSelect()"/></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <div style="flex:1"><select id="updateSelect"></select></div>
+            <button class="secondary" onclick="loadTemplateForUpdate()">불러오기</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <div style="flex:1"><input id="updateTitle" placeholder="제목"/></div>
+            <div style="width:130px"><input id="updatePageCount" type="number" placeholder="페이지수"/></div>
+            <div style="width:140px">
+              <select id="updateCategory">
+                <option value="일반">일반</option>
+                <option value="여행">여행</option>
+                <option value="웨딩">웨딩</option>
+                <option value="키즈">키즈</option>
+                <option value="포스터">포스터</option>
+                <option value="브랜드">브랜드</option>
+                <option value="로맨스">로맨스</option>
+                <option value="매거진">매거진</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel-lite" style="margin-top:8px">
+            <div style="margin-bottom:8px">
+              <div class="row">
+                <div style="flex:1"><input id="updateFigmaFile" type="file" accept=".json,application/json" onchange="importFigmaFileToForm('updateFigmaFile','update')"/></div>
+                <button class="secondary" onclick="importFigmaTextareaToForm('update')">Figma JSON 적용</button>
+              </div>
+              <div style="margin-top:8px"><textarea id="updateFigmaJson" placeholder="Figma handoff JSON / store JSON / template JSON을 붙여넣으세요"></textarea></div>
+            </div>
+            <div><input id="updateCover" placeholder="커버 URL"/></div>
+            <div class="split" style="margin-top:8px">
+              <input id="updatePreview" placeholder='previewImagesJson'/>
+              <input id="updateTags" placeholder='tagsJson'/>
+            </div>
+            <div style="margin-top:8px">
+              <input id="updateTemplateJsonFile" type="file" accept=".json,application/json" onchange="loadTemplateFileToTextarea('updateTemplateJsonFile','updateJson')"/>
+              <div class="file-note" style="margin-top:4px">기존 템플릿 JSON 교체 시 파일 업로드 가능</div>
+            </div>
+            <div style="margin-top:8px"><textarea id="updateJson" placeholder="templateJson"></textarea></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="secondary" onclick="validateTemplateDraft('update')">유효성 검사</button>
+            <button onclick="updateTemplate()">수정 저장</button>
+          </div>
+          <div class="muted" style="margin-top:6px">선택된 템플릿 ID로 업데이트됩니다.</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">
+        <h2>템플릿 목록</h2>
+        <button class="secondary" onclick="loadTemplates()">목록 새로고침</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>제목</th><th>카테고리</th><th>활성</th><th>액션</th></tr></thead>
+        <tbody id="templatesBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+  const FIXED_HOST = "54.253.3.176";
+  const FIXED_BASE_URL = `http://${FIXED_HOST}`;
+  const DEFAULT_ADMIN_KEY = "snapfit_admin_console_v1";
+  const state = {
+    baseUrl: FIXED_BASE_URL,
+    key: DEFAULT_ADMIN_KEY,
+    connected: false,
+    templates: [],
+    selectedTemplateId: null,
+    orderStatusFilter: "",
+    orderPage: 0,
+    orderTotalPages: 1,
+    inquiryPage: 0,
+    inquiryTotalPages: 1,
+    autoConnectInFlight: false,
+    autoConnectTimer: null
+  };
+  const $ = (id) => document.getElementById(id);
+
+  function setStatus(text, isError=false){
+    const el = $("status");
+    el.textContent = text;
+    el.className = isError ? "sub err" : "sub ok";
+  }
+  function showToast(message, isError=false){
+    const el = $("toast");
+    el.textContent = message;
+    el.style.background = isError ? "#c93f3f" : "#13263b";
+    el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 1800);
+  }
+  function touchSyncTime() {
+    $("lastSyncAt").textContent = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+  }
+  function openPanel(name){
+    for (const id of ["dashboard","orders","cs","templates"]) {
+      const panel = $(`panel-${id}`);
+      const btn = $(`tab-${id}`);
+      panel.classList.toggle("active", id === name);
+      btn.classList.toggle("active", id === name);
+    }
+  }
+  function openTemplateTab(name){
+    const isCreate = name === "create";
+    $("template-form-create").style.display = isCreate ? "block" : "none";
+    $("template-form-update").style.display = isCreate ? "none" : "block";
+    $("template-tab-create").classList.toggle("active", isCreate);
+    $("template-tab-update").classList.toggle("active", !isCreate);
+  }
+  function openCsTab(name){
+    const isSignals = name === "signals";
+    $("cs-panel-signals").classList.toggle("hidden", !isSignals);
+    $("cs-panel-inquiries").classList.toggle("hidden", isSignals);
+    $("cs-tab-signals").classList.toggle("active", isSignals);
+    $("cs-tab-inquiries").classList.toggle("active", !isSignals);
+    if (!isSignals) {
+      loadInquiries(state.inquiryPage);
+    }
+  }
+  function setOrderStatusFilter(status) {
+    state.orderStatusFilter = status;
+    state.orderPage = 0;
+    for (const btn of document.querySelectorAll("#orderStatusPills .pill")) {
+      btn.classList.toggle("active", (btn.dataset.status || "") === status);
+    }
+    loadOrders();
+  }
+  async function loadTemplateFileToTextarea(fileInputId, textareaId) {
+    const input = $(fileInputId);
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const text = await file.text();
+    $(textareaId).value = text;
+    showToast("템플릿 JSON 파일 로드 완료");
+  }
+
+  function _safeParseJson(text) {
+    try { return JSON.parse(text); } catch (_) { return null; }
+  }
+
+  function _pickFirstTemplateNode(raw) {
+    if (Array.isArray(raw)) return raw.length ? raw[0] : null;
+    if (!raw || typeof raw !== "object") return null;
+    if (Array.isArray(raw.templates) && raw.templates.length) return raw.templates[0];
+    if (Array.isArray(raw.items) && raw.items.length) return raw.items[0];
+    if (Array.isArray(raw.content) && raw.content.length) return raw.content[0];
+    return raw;
+  }
+
+  function _normalizeTemplateJsonObject(node) {
+    if (!node || typeof node !== "object") return null;
+    if (typeof node.templateJson === "string") {
+      const parsed = _safeParseJson(node.templateJson);
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+    if (node.templateJson && typeof node.templateJson === "object") {
+      return node.templateJson;
+    }
+
+    // handoff 형태를 바로 templateJson으로 승격
+    if (Array.isArray(node.pages) || (node.cover && Array.isArray(node.cover.layers))) {
+      const pageArray = Array.isArray(node.pages) ? node.pages : [];
+      const normalizedPages = pageArray.map((p, idx) => ({
+        pageNumber: Number(p.pageNumber || (idx + 1)),
+        layers: Array.isArray(p.layers) ? p.layers : []
+      }));
+      const cover = node.cover && Array.isArray(node.cover.layers)
+        ? { theme: (node.cover.theme || "auto"), layers: node.cover.layers }
+        : { theme: "auto", layers: [] };
+      return {
+        templateId: String(node.templateId || node.id || `figma_${Date.now()}`),
+        name: String(node.name || node.title || "Figma Template"),
+        ratio: String(node.ratio || "1.0"),
+        cover,
+        pages: normalizedPages,
+        metadata: node.metadata && typeof node.metadata === "object" ? node.metadata : {}
+      };
+    }
+    return null;
+  }
+
+  function _collectImageUrlsFromTemplateJson(templateJsonObj) {
+    const urls = [];
+    const pushUrl = (u) => {
+      const v = String(u || "").trim();
+      if (!v) return;
+      if (!/^https?:\/\//i.test(v)) return;
+      if (!urls.includes(v)) urls.push(v);
+    };
+    const collectFromLayers = (layers) => {
+      if (!Array.isArray(layers)) return;
+      for (const l of layers) {
+        const payload = l && typeof l === "object" ? l.payload : null;
+        if (!payload || typeof payload !== "object") continue;
+        pushUrl(payload.imageUrl);
+        pushUrl(payload.previewUrl);
+        pushUrl(payload.originalUrl);
+      }
+    };
+    collectFromLayers(templateJsonObj?.cover?.layers);
+    const pages = Array.isArray(templateJsonObj?.pages) ? templateJsonObj.pages : [];
+    for (const p of pages) collectFromLayers(p?.layers);
+    return urls;
+  }
+
+  function _buildAdminDraftFromAnyJson(raw) {
+    const node = _pickFirstTemplateNode(raw);
+    if (!node || typeof node !== "object") {
+      throw new Error("JSON에서 템플릿 객체를 찾을 수 없습니다.");
+    }
+
+    const templateJsonObj = _normalizeTemplateJsonObject(node);
+    if (!templateJsonObj) {
+      throw new Error("templateJson(또는 pages/cover 구조)을 찾을 수 없습니다.");
+    }
+
+    const explicitPreview = Array.isArray(node.previewImages)
+      ? node.previewImages
+      : (Array.isArray(node.previewImageUrls) ? node.previewImageUrls : []);
+    const templateImageUrls = _collectImageUrlsFromTemplateJson(templateJsonObj);
+    const previewImages = (explicitPreview.length ? explicitPreview : templateImageUrls).filter(Boolean);
+
+    const coverImageUrl = String(
+      node.coverImageUrl ||
+      previewImages[0] ||
+      templateImageUrls[0] ||
+      ""
+    ).trim();
+
+    const pagesLen = Array.isArray(templateJsonObj.pages) ? templateJsonObj.pages.length : 0;
+    const pageCount = Number(node.pageCount || pagesLen || 12);
+    const tags = Array.isArray(node.tags) ? node.tags : [];
+
+    return {
+      title: String(node.title || node.name || templateJsonObj.name || "새 템플릿").trim(),
+      category: String(node.category || "일반").trim(),
+      pageCount: Math.max(1, pageCount),
+      coverImageUrl,
+      previewImages,
+      tags,
+      templateJson: JSON.stringify(templateJsonObj),
+      source: JSON.stringify(node, null, 2),
+    };
+  }
+
+  function _applyDraftToTemplateForm(prefix, draft) {
+    $(`${prefix}Title`).value = draft.title || "";
+    $(`${prefix}PageCount`).value = Number(draft.pageCount || 12);
+    const categoryEl = $(`${prefix}Category`);
+    if (categoryEl) {
+      const options = Array.from(categoryEl.options).map((o) => o.value);
+      categoryEl.value = options.includes(draft.category) ? draft.category : "일반";
+    }
+    $(`${prefix}Cover`).value = draft.coverImageUrl || "";
+    $(`${prefix}Preview`).value = JSON.stringify(draft.previewImages || []);
+    $(`${prefix}Tags`).value = JSON.stringify(draft.tags || []);
+    $(`${prefix}Json`).value = draft.templateJson || "";
+  }
+
+  async function importFigmaFileToForm(fileInputId, prefix) {
+    try {
+      const input = $(fileInputId);
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const text = await file.text();
+      $(`${prefix}FigmaJson`).value = text;
+      await importFigmaTextareaToForm(prefix);
+    } catch (e) {
+      showToast(`Figma 파일 적용 실패: ${e.message}`, true);
+    }
+  }
+
+  async function importFigmaTextareaToForm(prefix) {
+    try {
+      const raw = $(`${prefix}FigmaJson`).value || "";
+      if (!raw.trim()) throw new Error("Figma JSON을 먼저 입력해주세요.");
+      const parsed = _safeParseJson(raw);
+      if (!parsed) throw new Error("JSON 파싱 실패");
+      const draft = _buildAdminDraftFromAnyJson(parsed);
+      _applyDraftToTemplateForm(prefix, draft);
+      showToast("Figma JSON 자동 반영 완료");
+    } catch (e) {
+      showToast(`Figma JSON 적용 실패: ${e.message}`, true);
+    }
+  }
+  function headers() { return { "Content-Type":"application/json", "X-Admin-Key": DEFAULT_ADMIN_KEY }; }
+  async function api(path, opt={}) {
+    if (!state.connected) {
+      await ensureAlwaysConnected();
+    }
+    setStatus(`<span class="loading-dot"></span> 요청 중...`);
+    let res;
+    try {
+      res = await fetch(state.baseUrl + path, { ...opt, headers: { ...headers(), ...(opt.headers||{}) } });
+    } catch (_) {
+      // 혹시 잘못된 스킴으로 잡혔으면 운영 HTTP로 강제 복구
+      state.baseUrl = FIXED_BASE_URL;
+      res = await fetch(state.baseUrl + path, { ...opt, headers: { ...headers(), ...(opt.headers||{}) } });
+    }
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`${res.status} ${res.statusText} ${body ? `| ${body.slice(0,120)}` : ""}`);
+    }
+    return res.json();
+  }
+  async function downloadAdminFile(path, fallbackName) {
+    if (!state.connected) {
+      await ensureAlwaysConnected();
+    }
+    setStatus(`<span class="loading-dot"></span> 파일 준비 중...`);
+    const res = await fetch(state.baseUrl + path, { headers: headers() });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`${res.status} ${res.statusText} ${body ? `| ${body.slice(0,120)}` : ""}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const disposition = res.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    a.href = url;
+    a.download = match ? match[1] : fallbackName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setStatus("다운로드 준비 완료");
+  }
+  function metric(label, value){
+    const div = document.createElement("div");
+    div.className = "metric";
+    div.innerHTML = `<div class="label">${label}</div><div class="value">${value ?? "-"}</div>`;
+    return div;
+  }
+
+  function requireConnected() {
+    state.baseUrl = FIXED_BASE_URL;
+    state.key = DEFAULT_ADMIN_KEY;
+  }
+
+  async function connect() {
+    try {
+      requireConnected();
+      await reloadAll();
+      state.connected = true;
+      setStatus("연결 성공");
+      showToast("운영센터 연결 완료");
+    } catch (e) {
+      state.connected = false;
+      setStatus(`연결 실패: ${e.message}`, true);
+      showToast("연결 실패", true);
+      throw e;
+    }
+  }
+
+  async function connectWithRetry(maxAttempts = 3) {
+    let attempt = 0;
+    while (attempt < maxAttempts) {
+      attempt += 1;
+      try {
+        await connect();
+        return true;
+      } catch (_) {
+        if (attempt >= maxAttempts) break;
+        await new Promise((r) => setTimeout(r, attempt * 700));
+      }
+    }
+    return false;
+  }
+
+  async function ensureAlwaysConnected() {
+    if (state.autoConnectInFlight) return state.connected;
+    state.autoConnectInFlight = true;
+    try {
+      const ok = await connectWithRetry(2);
+      if (!ok) {
+        state.connected = false;
+        setStatus("자동 재연결 중...", true);
+      }
+      return ok;
+    } finally {
+      state.autoConnectInFlight = false;
+    }
+  }
+
+  function startAlwaysConnectLoop() {
+    if (state.autoConnectTimer) return;
+    // 항상 연결 유지: 3초 주기로 자동 재연결 시도
+    state.autoConnectTimer = setInterval(() => {
+      ensureAlwaysConnected();
+    }, 3000);
+    ensureAlwaysConnected();
+  }
+
+  async function reloadAll() {
+    requireConnected();
+    await Promise.all([loadDashboard(), loadOrders(), loadSignals(), loadTemplates(), loadInquiries(state.inquiryPage)]);
+    touchSyncTime();
+    setStatus("동기화 완료");
+  }
+
+  async function loadDashboard() {
+    const d = await api("/api/admin/dashboard");
+    const m = $("metrics");
+    m.innerHTML = "";
+    const users = d.users || {}, templates = d.templates || {}, orders = d.orders || {}, billing = d.billing || {};
+    m.append(
+      metric("총 사용자", users.total),
+      metric("신규(24h)", users.new24h),
+      metric("템플릿(활성/전체)", `${templates.active ?? 0}/${templates.total ?? 0}`),
+      metric("주문(24h/전체)", `${orders.new24h ?? 0}/${orders.total ?? 0}`),
+      metric("결제승인(24h)", billing.approved24h),
+      metric("결제실패(24h)", billing.failed24h),
+    );
+  }
+
+  async function loadOrders() {
+    const keyword = encodeURIComponent($("orderKeyword").value.trim());
+    const statusQuery = state.orderStatusFilter ? `&status=${encodeURIComponent(state.orderStatusFilter)}` : "";
+    const data = await api(`/api/admin/orders/paged?page=${state.orderPage}&size=20${statusQuery}${keyword ? `&keyword=${keyword}` : ""}`);
+    const body = $("ordersBody");
+    body.innerHTML = "";
+    state.orderTotalPages = Math.max(1, Number(data.totalPages || 1));
+    $("ordersPageInfo").textContent = `${state.orderPage + 1} / ${state.orderTotalPages}`;
+    for (const o of (data.items || [])) {
+      const tr = document.createElement("tr");
+      const userLine = `${o.userId || "-"}${o.recipientName ? ` / ${o.recipientName}` : ""}`;
+      tr.innerHTML = `
+        <td><div>${o.orderId}</div><div class="muted">${o.title || ""}</div></td>
+        <td><div>${userLine}</div><div class="muted">${o.recipientPhone || ""}</div></td>
+        <td><span class="chip">${o.statusLabel || o.status}</span></td>
+        <td>
+          <div class="muted" style="margin-bottom:6px">
+            인쇄패키지 ${o.printPackageGeneratedAt ? `준비됨 · ${o.printAssetCount ?? 0}개` : "미생성"}
+          </div>
+          <button class="secondary" onclick="preparePrintPackage('${o.orderId}')">인쇄 준비</button>
+          <button class="secondary" onclick="downloadPrintZip('${o.orderId}')">ZIP</button>
+          <button class="secondary" onclick="downloadPrintPdf('${o.orderId}')">PDF</button>
+          <button class="secondary" onclick="toShipping('${o.orderId}')">배송중</button>
+          <button onclick="toDelivered('${o.orderId}')">배송완료</button>
+        </td>`;
+      body.appendChild(tr);
+    }
+  }
+  function prevOrdersPage() {
+    if (state.orderPage <= 0) return;
+    state.orderPage -= 1;
+    loadOrders();
+  }
+  function nextOrdersPage() {
+    if (state.orderPage + 1 >= state.orderTotalPages) return;
+    state.orderPage += 1;
+    loadOrders();
+  }
+
+  async function toShipping(orderId){
+    const courier = $("courier").value.trim();
+    const tracking = $("tracking").value.trim();
+    if (!tracking) return alert("운송장 번호를 입력하세요.");
+    await api(`/api/admin/orders/${orderId}/shipping`, { method: "POST", body: JSON.stringify({ courier, trackingNumber: tracking }) });
+    await Promise.all([loadOrders(), loadSignals(), loadDashboard()]);
+    showToast("주문 상태를 배송중으로 변경했습니다.");
+  }
+  async function toDelivered(orderId){
+    await api(`/api/admin/orders/${orderId}/delivered`, { method: "POST", body: "{}" });
+    await Promise.all([loadOrders(), loadSignals(), loadDashboard()]);
+    showToast("주문 상태를 배송완료로 변경했습니다.");
+  }
+  async function preparePrintPackage(orderId){
+    await api(`/api/admin/orders/${orderId}/print-package/prepare`, { method: "POST", body: "{}" });
+    await Promise.all([loadOrders(), loadDashboard()]);
+    showToast("인쇄 패키지를 준비했습니다.");
+  }
+  async function downloadPrintZip(orderId){
+    await downloadAdminFile(`/api/admin/orders/${orderId}/print-package.zip`, `${orderId}-print-package.zip`);
+  }
+  async function downloadPrintPdf(orderId){
+    await downloadAdminFile(`/api/admin/orders/${orderId}/print-package.pdf`, `${orderId}-print-package.pdf`);
+  }
+
+  async function loadSignals() {
+    const data = await api("/api/admin/cs-signals?limit=80");
+    const body = $("signalsBody");
+    body.innerHTML = "";
+    for (const s of (data.items || [])) {
+      const sevClass = (s.severity || "").toUpperCase() === "HIGH" ? "chip high" : "chip";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><span class="${sevClass}">${s.severity || ""}</span></td>
+        <td>${s.message || ""}</td>
+        <td>${s.orderId || ""}<br/><span class="muted">${s.userId || ""}</span></td>
+        <td>${s.updatedAt || ""}</td>`;
+      body.appendChild(tr);
+    }
+  }
+
+  async function loadInquiries(page = 0) {
+    state.inquiryPage = Math.max(0, page);
+    const status = ($("inquiryStatusFilter")?.value || "").trim();
+    const keyword = encodeURIComponent(($("inquiryKeyword")?.value || "").trim());
+    const statusQuery = status ? `&status=${encodeURIComponent(status)}` : "";
+    const data = await api(`/api/admin/inquiries/paged?page=${state.inquiryPage}&size=15${statusQuery}${keyword ? `&keyword=${keyword}` : ""}`);
+    state.inquiryTotalPages = Math.max(1, Number(data.totalPages || 1));
+    $("inquiriesPageInfo").textContent = `${state.inquiryPage + 1} / ${state.inquiryTotalPages}`;
+
+    const body = $("inquiriesBody");
+    body.innerHTML = "";
+    for (const i of (data.items || [])) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>#${i.id}</td>
+        <td>${i.userId || "-"}</td>
+        <td>
+          <div style="font-weight:700">${i.subject || ""}</div>
+          <div class="muted">${i.message || ""}</div>
+        </td>
+        <td><span class="chip">${i.status || ""}</span></td>
+        <td>
+          ${i.status === "OPEN"
+            ? `<button onclick="resolveInquiry(${i.id})">해결 처리</button>`
+            : `<span class="muted">${i.resolvedBy || "admin"}</span>`}
+        </td>`;
+      body.appendChild(tr);
+    }
+  }
+  async function resolveInquiry(id) {
+    await api(`/api/admin/inquiries/${id}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ resolvedBy: "admin" })
+    });
+    await loadInquiries(state.inquiryPage);
+    showToast(`문의 #${id} 해결 처리 완료`);
+  }
+  function prevInquiriesPage() {
+    if (state.inquiryPage <= 0) return;
+    loadInquiries(state.inquiryPage - 1);
+  }
+  function nextInquiriesPage() {
+    if (state.inquiryPage + 1 >= state.inquiryTotalPages) return;
+    loadInquiries(state.inquiryPage + 1);
+  }
+
+  function updateTemplateSelect() {
+    const sel = $("updateSelect");
+    sel.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "수정할 템플릿을 선택하세요";
+    sel.appendChild(placeholder);
+    for (const t of state.templates) {
+      const opt = document.createElement("option");
+      opt.value = String(t.id);
+      opt.textContent = `#${t.id} ${t.title || ""}`;
+      sel.appendChild(opt);
+    }
+  }
+
+  function filterTemplateSelect() {
+    const q = ($("templateSearch").value || "").trim().toLowerCase();
+    const sel = $("updateSelect");
+    sel.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "수정할 템플릿을 선택하세요";
+    sel.appendChild(placeholder);
+    for (const t of state.templates) {
+      if (q && !(String(t.title || "").toLowerCase().includes(q) || String(t.id).includes(q))) continue;
+      const opt = document.createElement("option");
+      opt.value = String(t.id);
+      opt.textContent = `#${t.id} ${t.title || ""}`;
+      sel.appendChild(opt);
+    }
+  }
+
+  async function loadTemplates() {
+    const data = await api("/api/admin/templates/paged?page=0&size=50");
+    state.templates = data.items || [];
+    updateTemplateSelect();
+
+    const body = $("templatesBody");
+    body.innerHTML = "";
+    for (const t of state.templates) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${t.id}</td>
+        <td>${t.title || ""}</td>
+        <td>${t.category || ""}</td>
+        <td><span class="chip">${t.active ? "ON" : "OFF"}</span></td>
+        <td>
+          <button class="secondary" onclick="quickLoadTemplate(${t.id})">수정 불러오기</button>
+          <button class="${t.active ? "warn" : ""}" onclick="toggleTemplate(${t.id}, ${t.active ? "false":"true"})">${t.active ? "비노출" : "노출"}</button>
+          <button class="warn" onclick='deleteTemplate(${t.id}, ${JSON.stringify(t.title || "")})'>삭제</button>
+        </td>`;
+      body.appendChild(tr);
+    }
+  }
+
+  async function quickLoadTemplate(id) {
+    $("updateSelect").value = String(id);
+    await loadTemplateForUpdate();
+  }
+
+  async function loadTemplateForUpdate() {
+    const id = Number($("updateSelect").value);
+    if (!id) return alert("수정할 템플릿을 먼저 선택하세요.");
+    const d = await api(`/api/admin/templates/${id}`);
+    state.selectedTemplateId = id;
+    $("updateTitle").value = d.title || "";
+    $("updateCover").value = d.coverImageUrl || "";
+    $("updatePageCount").value = d.pageCount || 12;
+    $("updateCategory").value = (d.category || "일반").toString();
+    $("updatePreview").value = d.previewImagesJson || "[]";
+    $("updateTags").value = d.tagsJson || "[]";
+    $("updateJson").value = d.templateJson || "";
+  }
+
+  async function toggleTemplate(id, active) {
+    await api(`/api/admin/templates/${id}/active`, { method: "POST", body: JSON.stringify({ active }) });
+    await Promise.all([loadTemplates(), loadDashboard()]);
+    showToast(`템플릿 #${id} ${active ? "노출" : "비노출"} 처리 완료`);
+  }
+
+  async function deleteTemplate(id, title) {
+    const ok = confirm(`템플릿을 삭제할까요?\n\n#${id} ${title || ''}\n\n삭제 후 복구할 수 없습니다.`);
+    if (!ok) return;
+    try {
+      await api(`/api/admin/templates/${id}`, { method: "DELETE" });
+      await Promise.all([loadTemplates(), loadDashboard()]);
+      showToast(`템플릿 #${id} 삭제 완료`);
+    } catch (e) {
+      showToast(`삭제 실패: ${e.message}`, true);
+    }
+  }
+
+  function commonTemplatePayload(prefix) {
+    const categoryEl = document.getElementById(`${prefix}Category`);
+    return {
+      title: $(`${prefix}Title`).value.trim(),
+      coverImageUrl: $(`${prefix}Cover`).value.trim(),
+      pageCount: Number($(`${prefix}PageCount`).value || 12),
+      previewImagesJson: $(`${prefix}Preview`).value.trim() || "[]",
+      tagsJson: $(`${prefix}Tags`).value.trim() || "[]",
+      templateJson: $(`${prefix}Json`).value.trim(),
+      likeCount: 0,
+      userCount: 0,
+      isBest: false,
+      isPremium: false,
+      category: (categoryEl?.value || "일반").trim(),
+      active: true
+    };
+  }
+
+  function validateTemplatePayload(payload){
+    if (!payload.title || !payload.coverImageUrl || !payload.templateJson) {
+      throw new Error("제목/커버URL/templateJson은 필수입니다.");
+    }
+    const parsedPreview = JSON.parse(payload.previewImagesJson || "[]");
+    const parsedTags = JSON.parse(payload.tagsJson || "[]");
+    const parsedTemplate = JSON.parse(payload.templateJson);
+    if (!Array.isArray(parsedPreview)) throw new Error("previewImagesJson은 배열이어야 합니다.");
+    if (!Array.isArray(parsedTags)) throw new Error("tagsJson은 배열이어야 합니다.");
+    if (!parsedTemplate || typeof parsedTemplate !== "object") throw new Error("templateJson 형식이 올바르지 않습니다.");
+  }
+  function validateTemplateDraft(prefix){
+    serverValidateTemplate(prefix);
+  }
+
+  async function serverValidateTemplate(prefix) {
+    try {
+      requireConnected();
+      const payload = commonTemplatePayload(prefix);
+      validateTemplatePayload(payload);
+      const result = await api("/api/admin/templates/validate", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const errors = Array.isArray(result.errors) ? result.errors : [];
+      const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+      if (errors.length > 0) {
+        alert(
+          `검증 실패\n\n오류:\n- ${errors.join('\n- ')}${
+            warnings.length ? `\n\n경고:\n- ${warnings.join('\n- ')}` : ''
+          }`
+        );
+        showToast("검증 실패: 오류를 먼저 수정해주세요.", true);
+        return false;
+      }
+      if (warnings.length > 0) {
+        showToast(`검증 통과(경고 ${warnings.length}건)`);
+      } else {
+        showToast("서버 검증 통과");
+      }
+      return true;
+    } catch (e) {
+      showToast(`검증 실패: ${e.message}`, true);
+      return false;
+    }
+  }
+
+  function _seedFromText(text){
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash).toString();
+  }
+
+  function _coverPalette(style){
+    switch (style) {
+      case "romance":
+        return { top: "#F6D7DF", bottom: "#F7E8ED", text: "#4A2F3A" };
+      case "travel":
+        return { top: "#D6ECFF", bottom: "#EAF6FF", text: "#1D3B5A" };
+      case "magazine":
+        return { top: "#EFE7D7", bottom: "#F6F2E8", text: "#2F2A22" };
+      default:
+        return { top: "#EEF2F8", bottom: "#F8FAFD", text: "#1F2A38" };
+    }
+  }
+
+  function _styleToCategory(style) {
+    switch ((style || "").trim().toLowerCase()) {
+      case "travel": return "여행";
+      case "wedding": return "웨딩";
+      case "kids": return "키즈";
+      case "poster": return "포스터";
+      case "brand": return "브랜드";
+      case "romance": return "로맨스";
+      case "magazine": return "매거진";
+      default: return "일반";
+    }
+  }
+
+  function _buildLayerImage(id, x, y, width, height, imageUrl, z=2){
+    return {
+      id, type: "IMAGE", zIndex: z, x, y, width, height,
+      scale: 1.0, rotation: 0.0, opacity: 1.0,
+      payload: {
+        imageBackground: "free",
+        imageTemplate: null,
+        originalUrl: imageUrl,
+        previewUrl: imageUrl,
+        imageUrl: imageUrl
+      }
+    };
+  }
+
+  function _buildLayerText(id, text, x, y, width, height, color, size, weight=7, align="left", z=10){
+    return {
+      id, type: "TEXT", zIndex: z, x, y, width, height,
+      scale: 1.0, rotation: 0.0, opacity: 1.0,
+      payload: {
+        text,
+        textAlign: align,
+        textStyleType: "none",
+        textBackground: null,
+        bubbleColor: null,
+        textStyle: {
+          fontSize: size,
+          fontSizeRatio: 0.05,
+          fontWeight: weight,
+          fontStyle: 0,
+          fontFamily: "Inter",
+          color,
+          letterSpacing: 0.0
+        }
+      }
+    };
+  }
+
+  function _buildLayerDecoration(id, x, y, width, height, colorKey="paperYellow", z=1){
+    return {
+      id, type: "DECORATION", zIndex: z, x, y, width, height,
+      scale: 1.0, rotation: 0.0, opacity: 1.0,
+      payload: {
+        imageBackground: colorKey,
+        imageTemplate: "free",
+        originalUrl: null,
+        previewUrl: null,
+        imageUrl: null
+      }
+    };
+  }
+
+  function _buildAutoTemplateJson(title, style, pageCount = 12, description = "") {
+    const safeCount = Math.max(12, Math.min(24, Number(pageCount || 12)));
+    const seed = _seedFromText(`${title}-${style}`);
+    const palette = _coverPalette(style);
+    const mainImage = `https://picsum.photos/seed/${seed}/1400/1600`;
+    const altImageA = `https://picsum.photos/seed/${seed}a/1400/1600`;
+    const altImageB = `https://picsum.photos/seed/${seed}b/1400/1600`;
+
+    const coverLayers = [
+      _buildLayerDecoration("cover_top_bg", -0.03, 0.00, 1.06, 0.17, "paperYellow", 1),
+      _buildLayerImage("cover_main_photo", -0.02, 0.15, 1.04, 0.76, mainImage, 2),
+      _buildLayerDecoration("cover_bottom_bg", -0.03, 0.91, 1.06, 0.09, "paperYellow", 15),
+      _buildLayerText("cover_title", title.toUpperCase(), 0.05, 0.03, 0.9, 0.1, "#ff22313f", 34, 8, "left", 12),
+      _buildLayerText("cover_subtitle", description || "SNAPFIT TEMPLATE", 0.2, 0.935, 0.7, 0.04, "#ff111111", 12, 7, "center", 16),
+    ];
+
+    const pages = [];
+    for (let i = 1; i <= safeCount; i++) {
+      const img = i % 3 === 0 ? altImageB : (i % 2 === 0 ? altImageA : mainImage);
+      pages.push({
+        pageNumber: i,
+        layers: [
+          _buildLayerImage(`p${i}_photo`, -0.01, 0.0, 1.02, 1.0, img, 2),
+          _buildLayerText(`p${i}_title`, `${title} ${i}`, 0.06, 0.06, 0.82, 0.08, "#ffffffff", 26, 8, "left", 10),
+          _buildLayerText(`p${i}_sub`, description || "우리의 소중한 기록", 0.06, 0.14, 0.6, 0.04, "#ffeef5ff", 14, 6, "left", 11),
+        ],
+      });
+    }
+
+    return {
+      templateId: `auto_${seed}`,
+      name: title,
+      ratio: "1.0",
+      cover: { theme: "auto", layers: coverLayers },
+      pages,
+      metadata: {
+        style,
+        applyScope: "cover_and_pages",
+      }
+    };
+  }
+
+  function generateQuickDraft() {
+    const title = ($("quickTitle").value || "").trim();
+    if (!title) {
+      showToast("템플릿 제목을 입력해주세요.", true);
+      return;
+    }
+    const style = ($("quickStyle").value || "minimal").trim();
+    const description = ($("quickDescription").value || "").trim();
+    const seed = _seedFromText(`${title}-${style}`);
+    const cover = `https://picsum.photos/seed/${seed}/1200/1600`;
+    const previews = [
+      `https://picsum.photos/seed/${seed}1/1200/1600`,
+      `https://picsum.photos/seed/${seed}2/1200/1600`,
+      `https://picsum.photos/seed/${seed}3/1200/1600`,
+      `https://picsum.photos/seed/${seed}4/1200/1600`
+    ];
+    const template = _buildAutoTemplateJson(title, style, 12, description);
+
+    $("createTitle").value = title;
+    $("createPageCount").value = 12;
+    $("createCategory").value = _styleToCategory(style);
+    $("createCover").value = cover;
+    $("createPreview").value = JSON.stringify(previews);
+    $("createTags").value = JSON.stringify([style, "auto", "quick-create"]);
+    $("createJson").value = JSON.stringify(template);
+    showToast("AI 초안이 생성되었습니다.");
+  }
+
+  async function generateQuickDraftFromAi() {
+    const title = ($("quickTitle").value || "").trim();
+    if (!title) {
+      showToast("템플릿 제목을 입력해주세요.", true);
+      return false;
+    }
+    const style = ($("quickStyle").value || "minimal").trim();
+    const description = ($("quickDescription").value || "").trim();
+    try {
+      requireConnected();
+      const result = await api("/api/admin/templates/ai-draft", {
+        method: "POST",
+        body: JSON.stringify({ title, style, description, pageCount: 12 }),
+      });
+      const cover = (result.coverImageUrl || "").toString();
+      const previews = Array.isArray(result.previewImages) ? result.previewImages : [];
+      const tags = Array.isArray(result.tags) ? result.tags : [style, "ai-generated"];
+      const templateJsonObj = result.templateJson && typeof result.templateJson === "object"
+        ? result.templateJson
+        : _buildAutoTemplateJson(title, style, 12, description);
+
+      $("createTitle").value = title;
+      $("createPageCount").value = Number(result.pageCount || 12);
+      $("createCategory").value = (result.category || _styleToCategory(style)).toString();
+      $("createCover").value = cover || `https://picsum.photos/seed/${_seedFromText(title)}/1200/1600`;
+      $("createPreview").value = JSON.stringify(previews.length ? previews : [
+        `https://picsum.photos/seed/${_seedFromText(title)}1/1200/1600`,
+        `https://picsum.photos/seed/${_seedFromText(title)}2/1200/1600`,
+        `https://picsum.photos/seed/${_seedFromText(title)}3/1200/1600`,
+      ]);
+      $("createTags").value = JSON.stringify(tags);
+      $("createJson").value = JSON.stringify(templateJsonObj);
+      showToast("AI 초안 생성 완료");
+      return true;
+    } catch (e) {
+      showToast("AI 생성 실패, 로컬 초안으로 대체합니다.", true);
+      return false;
+    }
+  }
+
+  async function quickCreateTemplate() {
+    try {
+      const aiOk = await generateQuickDraftFromAi();
+      if (!aiOk) {
+        generateQuickDraft();
+      }
+      const payload = commonTemplatePayload("create");
+      validateTemplatePayload(payload);
+      const validated = await serverValidateTemplate("create");
+      if (!validated) return;
+      await api("/api/admin/templates/upsert", { method: "POST", body: JSON.stringify(payload) });
+      showToast("제목 기반 템플릿이 등록되었습니다.");
+      await Promise.all([loadTemplates(), loadDashboard()]);
+    } catch (e) {
+      showToast(`즉시 등록 실패: ${e.message}`, true);
+    }
+  }
+
+  async function createTemplate() {
+    try {
+      const payload = commonTemplatePayload("create");
+      validateTemplatePayload(payload);
+      const validated = await serverValidateTemplate("create");
+      if (!validated) return;
+      await api("/api/admin/templates/upsert", { method: "POST", body: JSON.stringify(payload) });
+      showToast("신규 템플릿 등록 완료");
+      $("createTitle").value = "";
+      $("createCover").value = "";
+      $("createJson").value = "";
+      await Promise.all([loadTemplates(), loadDashboard()]);
+    } catch (e) {
+      showToast(`등록 실패: ${e.message}`, true);
+      throw e;
+    }
+  }
+
+  async function updateTemplate() {
+    try {
+      const selectedId = state.selectedTemplateId || Number($("updateSelect").value);
+      if (!selectedId) return alert("수정할 템플릿을 선택/불러오기 하세요.");
+      const payload = { ...commonTemplatePayload("update"), id: selectedId };
+      validateTemplatePayload(payload);
+      const validated = await serverValidateTemplate("update");
+      if (!validated) return;
+      await api("/api/admin/templates/upsert", { method: "POST", body: JSON.stringify(payload) });
+      showToast(`템플릿 #${selectedId} 수정 완료`);
+      await Promise.all([loadTemplates(), loadDashboard()]);
+    } catch (e) {
+      showToast(`수정 실패: ${e.message}`, true);
+      throw e;
+    }
+  }
+
+  (async function init(){
+    startAlwaysConnectLoop();
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) ensureAlwaysConnected();
+    });
+    window.addEventListener("focus", () => ensureAlwaysConnected());
+  })();
+</script>
+</body>
+</html>

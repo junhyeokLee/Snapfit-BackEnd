@@ -1,0 +1,57 @@
+name: Deploy Backend (DEV)
+
+on:
+  push:
+    branches: [develop, dev]
+  workflow_dispatch:
+
+jobs:
+  gate-and-deploy-dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Pre-deploy gate
+        env:
+          SNAPFIT_API_BASE_URL: ${{ secrets.SNAPFIT_DEV_BASE_URL }}
+          SNAPFIT_QA_USER_ID: ${{ secrets.SNAPFIT_QA_USER_ID }}
+          SNAPFIT_QA_ALBUM_ID: ${{ secrets.SNAPFIT_QA_ALBUM_ID }}
+          SNAPFIT_ORDER_ADMIN_KEY: ${{ secrets.SNAPFIT_ORDER_ADMIN_KEY }}
+          ACCESS_TOKEN: ${{ secrets.SNAPFIT_QA_ACCESS_TOKEN }}
+        run: |
+          chmod +x scripts/run-predeploy-gate.sh
+          ./scripts/run-predeploy-gate.sh
+
+      - name: Build JAR
+        run: ./gradlew clean build -x test
+
+      - name: Upload JAR to dev server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEV_SERVER_HOST }}
+          username: ${{ secrets.DEV_SERVER_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          port: ${{ secrets.DEV_SERVER_PORT }}
+          source: "build/libs/*.jar"
+          target: ${{ secrets.DEV_DEPLOY_PATH }}
+
+      - name: Restart dev service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_SERVER_HOST }}
+          username: ${{ secrets.DEV_SERVER_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          port: ${{ secrets.DEV_SERVER_PORT }}
+          script: |
+            sudo systemctl restart snapfit-backend-dev
+            sleep 3
+            sudo systemctl status snapfit-backend-dev --no-pager
+

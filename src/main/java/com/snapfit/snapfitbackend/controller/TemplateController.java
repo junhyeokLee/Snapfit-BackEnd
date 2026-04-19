@@ -2,6 +2,7 @@ package com.snapfit.snapfitbackend.controller;
 
 import com.snapfit.snapfitbackend.domain.album.entity.AlbumEntity;
 import com.snapfit.snapfitbackend.domain.template.dto.response.TemplateResponse;
+import com.snapfit.snapfitbackend.domain.template.dto.response.TemplateSummaryPageResponse;
 import com.snapfit.snapfitbackend.domain.template.entity.TemplateEntity;
 import com.snapfit.snapfitbackend.domain.template.service.TemplateService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,14 @@ public class TemplateController {
     @GetMapping
     public ResponseEntity<List<TemplateResponse>> getAllTemplates(@RequestParam(required = false) String userId) {
         return ResponseEntity.ok(templateService.getAllTemplates(userId));
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<TemplateSummaryPageResponse> getTemplateSummaries(
+            @RequestParam(required = false) String userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(templateService.getTemplateSummaries(userId, page, size));
     }
 
     @GetMapping("/{id}")
@@ -65,11 +74,51 @@ public class TemplateController {
     public ResponseEntity<?> upsertTemplate(
             @RequestHeader(value = "X-Admin-Key", required = false) String requestAdminKey,
             @RequestBody TemplateUpsertRequest request) {
-        if (adminKey == null || adminKey.isBlank() || !adminKey.equals(requestAdminKey)) {
-            return ResponseEntity.status(403).body(Map.of("error", "forbidden"));
-        }
+        ensureTemplateAdmin(requestAdminKey);
         TemplateEntity saved = templateService.upsertTemplateFromAdmin(request.toEntity());
         return ResponseEntity.ok(Map.of("id", saved.getId()));
+    }
+
+    @GetMapping("/admin/paged")
+    public ResponseEntity<?> adminTemplatePaged(
+            @RequestHeader(value = "X-Admin-Key", required = false) String requestAdminKey,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        ensureTemplateAdmin(requestAdminKey);
+        return ResponseEntity.ok(templateService.getAdminTemplatePage(page, size));
+    }
+
+    @GetMapping("/admin/{id}")
+    public ResponseEntity<?> adminTemplateDetail(
+            @RequestHeader(value = "X-Admin-Key", required = false) String requestAdminKey,
+            @PathVariable Long id
+    ) {
+        ensureTemplateAdmin(requestAdminKey);
+        return ResponseEntity.ok(templateService.getAdminTemplateDetail(id));
+    }
+
+    @PostMapping("/admin/{id}/active")
+    public ResponseEntity<?> setTemplateActive(
+            @RequestHeader(value = "X-Admin-Key", required = false) String requestAdminKey,
+            @PathVariable Long id,
+            @RequestBody ActiveToggleRequest request
+    ) {
+        ensureTemplateAdmin(requestAdminKey);
+        return ResponseEntity.ok(templateService.setTemplateActive(id, request.active));
+    }
+
+    private void ensureTemplateAdmin(String requestAdminKey) {
+        if (adminKey == null || adminKey.isBlank() || !adminKey.equals(requestAdminKey)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "forbidden");
+        }
+    }
+
+    @lombok.Data
+    public static class ActiveToggleRequest {
+        private boolean active;
     }
 
     @lombok.Data

@@ -1,5 +1,10 @@
 # SnapFit Template Operations Guide
 
+관련 문서:
+- [Template DB Spec](./TEMPLATE_DB_SPEC.md)
+- [Template ERD](./TEMPLATE_ERD.md)
+- [Template API Spec](./TEMPLATE_API_SPEC.md)
+
 ## 1) Runtime Model
 Template API is server-driven. Store ranking and badges should come from backend fields:
 - `category`
@@ -34,10 +39,29 @@ Template API is server-driven. Store ranking and badges should come from backend
 
 ## 5) Recommended Release Process
 1. Add/modify template payload in seed or admin upsert JSON
-2. Verify `/api/templates` response includes metadata
-3. Check store sorting behavior (`weeklyScore`, `isNew`)
-4. Create album from template and inspect cover/page rendering
-5. Send `template_new` push after publish
+2. Run release pipeline (quality gate + publish + verify)
+3. Verify `/api/templates` response includes metadata
+4. Check store sorting behavior (`weeklyScore`, `isNew`)
+5. Create album from template and inspect cover/page rendering
+6. Send `template_new` push after publish
+
+```bash
+# frontend workspace
+cd /Users/devsheep/SnapFit/SnapFit
+./scripts/template_release_pipeline.sh \
+  --store-json=assets/templates/generated/store_latest.json \
+  --base-url=http://54.253.3.176 \
+  --admin-key="$SNAPFIT_PUSH_ADMIN_KEY"
+```
+
+```bash
+# backend workspace wrapper
+cd /Users/devsheep/SnapFit/SnapFit-BackEnd
+./scripts/template_release_pipeline.sh \
+  --store-json=assets/templates/generated/store_latest.json \
+  --base-url=http://54.253.3.176 \
+  --admin-key="$SNAPFIT_PUSH_ADMIN_KEY"
+```
 
 ## 6) Weekly Best / NEW Policy
 - NEW: `newUntil > now`

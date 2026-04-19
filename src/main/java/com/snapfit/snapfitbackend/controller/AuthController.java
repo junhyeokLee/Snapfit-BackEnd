@@ -1,6 +1,7 @@
 package com.snapfit.snapfitbackend.controller;
 
 import com.snapfit.snapfitbackend.domain.auth.dto.AuthResponse;
+import com.snapfit.snapfitbackend.domain.auth.dto.ConsentUpdateRequest;
 import com.snapfit.snapfitbackend.domain.auth.dto.GoogleLoginRequest;
 import com.snapfit.snapfitbackend.domain.auth.dto.KakaoLoginRequest;
 import com.snapfit.snapfitbackend.domain.auth.dto.RefreshRequest;
@@ -69,6 +70,49 @@ public class AuthController {
                     e);
             return ResponseEntity.status(500).body(Map.of(
                     "error", "PROFILE_UPLOAD_FAILED",
+                    "message", e.getMessage() == null ? "internal error" : e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/account")
+    public ResponseEntity<?> deleteAccount(
+            @RequestHeader(value = "Authorization") String authorization
+    ) {
+        try {
+            authService.deleteAccount(authorization);
+            return ResponseEntity.ok(Map.of("ok", true));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "ok", false,
+                    "error", "UNAUTHORIZED",
+                    "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("delete account failed", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "ok", false,
+                    "error", "DELETE_ACCOUNT_FAILED",
+                    "message", e.getMessage() == null ? "internal error" : e.getMessage()));
+        }
+    }
+
+    @PostMapping("/consents")
+    public ResponseEntity<?> updateConsents(
+            @RequestHeader(value = "Authorization") String authorization,
+            @RequestBody ConsentUpdateRequest request
+    ) {
+        try {
+            authService.updateConsents(authorization, request);
+            return ResponseEntity.ok(Map.of("ok", true));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "ok", false,
+                    "error", "UNAUTHORIZED",
+                    "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("update consents failed", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "ok", false,
+                    "error", "CONSENT_UPDATE_FAILED",
                     "message", e.getMessage() == null ? "internal error" : e.getMessage()));
         }
     }

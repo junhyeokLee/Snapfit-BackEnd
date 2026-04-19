@@ -1,0 +1,63 @@
+name: Deploy Backend (PROD)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY_PROD to continue"
+        required: true
+        default: ""
+
+jobs:
+  gate-and-deploy-prod:
+    if: ${{ github.event.inputs.confirm == 'DEPLOY_PROD' }}
+    runs-on: ubuntu-latest
+    environment: prod
+    concurrency:
+      group: snapfit-backend-prod
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Pre-deploy gate (must pass)
+        env:
+          SNAPFIT_API_BASE_URL: ${{ secrets.SNAPFIT_DEV_BASE_URL }}
+          SNAPFIT_QA_USER_ID: ${{ secrets.SNAPFIT_QA_USER_ID }}
+          SNAPFIT_QA_ALBUM_ID: ${{ secrets.SNAPFIT_QA_ALBUM_ID }}
+          SNAPFIT_ORDER_ADMIN_KEY: ${{ secrets.SNAPFIT_ORDER_ADMIN_KEY }}
+          ACCESS_TOKEN: ${{ secrets.SNAPFIT_QA_ACCESS_TOKEN }}
+        run: |
+          chmod +x scripts/run-predeploy-gate.sh
+          ./scripts/run-predeploy-gate.sh
+
+      - name: Build JAR
+        run: ./gradlew clean build -x test
+
+      - name: Upload JAR to prod server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          source: "build/libs/*.jar"
+          target: ${{ secrets.DEPLOY_PATH }}
+
+      - name: Restart prod service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            sudo systemctl restart snapfit-backend
+            sleep 3
+            sudo systemctl status snapfit-backend --no-pager

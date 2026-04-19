@@ -16,4 +16,8 @@ public interface AlbumMemberRepository extends JpaRepository<AlbumMemberEntity, 
     Optional<AlbumMemberEntity> findByAlbumIdAndUserId(Long albumId, String userId);
 
     boolean existsByAlbumIdAndUserIdAndStatus(Long albumId, String userId, AlbumMemberStatus status);
+
+    long deleteByAlbumId(Long albumId);
+
+    long deleteByUserId(String userId);
 }

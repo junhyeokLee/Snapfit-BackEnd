@@ -29,10 +29,58 @@ management:
       enabled: false
 
 snapfit:
+  ai:
+    openai:
+      api-key: ${SNAPFIT_OPENAI_API_KEY:}
+      model: ${SNAPFIT_OPENAI_MODEL:gpt-4.1-mini}
+      responses-url: ${SNAPFIT_OPENAI_RESPONSES_URL:https://api.openai.com/v1/responses}
   storage:
     local-dir: ${SNAPFIT_LOCAL_STORAGE_DIR:/tmp/snapfit-uploads}
   push:
     admin-key: ${SNAPFIT_PUSH_ADMIN_KEY:}
+  order:
+    admin-key: ${SNAPFIT_ORDER_ADMIN_KEY:}
+    print:
+      vendor: ${SNAPFIT_ORDER_PRINT_VENDOR:MANUAL}
+    pricing:
+      base-pages: ${SNAPFIT_ORDER_PRICING_BASE_PAGES:12}
+      max-pages: ${SNAPFIT_ORDER_PRICING_MAX_PAGES:50}
+      base-price: ${SNAPFIT_ORDER_PRICING_BASE_PRICE:19900}
+      extra-page-price: ${SNAPFIT_ORDER_PRICING_EXTRA_PAGE_PRICE:700}
+  address:
+    juso:
+      enabled: ${SNAPFIT_ADDRESS_JUSO_ENABLED:true}
+      key: ${SNAPFIT_ADDRESS_JUSO_KEY:}
+      base-url: ${SNAPFIT_ADDRESS_JUSO_BASE_URL:https://business.juso.go.kr/addrlink/addrLinkApi.do}
+      count-per-page: ${SNAPFIT_ADDRESS_JUSO_COUNT_PER_PAGE:10}
+      timeout-ms: ${SNAPFIT_ADDRESS_JUSO_TIMEOUT_MS:4000}
+      history-yn: ${SNAPFIT_ADDRESS_JUSO_HISTORY_YN:N}
+      first-sort: ${SNAPFIT_ADDRESS_JUSO_FIRST_SORT:road}
+      add-info-yn: ${SNAPFIT_ADDRESS_JUSO_ADD_INFO_YN:Y}
+  billing:
+    mock-mode: ${SNAPFIT_BILLING_MOCK_MODE:true}
+    public-base-url: ${SNAPFIT_BILLING_PUBLIC_BASE_URL:http://localhost:8080}
+    storage:
+      limit:
+        free:
+          soft-bytes: ${SNAPFIT_BILLING_STORAGE_LIMIT_FREE_SOFT_BYTES:1073741824}
+          hard-bytes: ${SNAPFIT_BILLING_STORAGE_LIMIT_FREE_HARD_BYTES:1073741824}
+        pro:
+          soft-bytes: ${SNAPFIT_BILLING_STORAGE_LIMIT_PRO_SOFT_BYTES:10737418240}
+          hard-bytes: ${SNAPFIT_BILLING_STORAGE_LIMIT_PRO_HARD_BYTES:10737418240}
+    toss:
+      secret-key: ${SNAPFIT_BILLING_TOSS_SECRET_KEY:}
+      confirm-url: ${SNAPFIT_BILLING_TOSS_CONFIRM_URL:https://api.tosspayments.com/v1/payments/confirm}
+      cancel-url-prefix: ${SNAPFIT_BILLING_TOSS_CANCEL_URL_PREFIX:https://api.tosspayments.com/v1/payments}
+    webhook:
+      secret: ${SNAPFIT_BILLING_WEBHOOK_SECRET:}
+      toss:
+        secret: ${SNAPFIT_BILLING_WEBHOOK_TOSS_SECRET:}
+      inicis:
+        secret: ${SNAPFIT_BILLING_WEBHOOK_INICIS_SECRET:}
+  notifications:
+    retention-days: ${SNAPFIT_NOTIFICATIONS_RETENTION_DAYS:90}
+    cleanup-cron: ${SNAPFIT_NOTIFICATIONS_CLEANUP_CRON:0 10 3 * * *}
 
 server:
   port: 8080
@@ -103,7 +151,7 @@ snapfit:
 
 jwt:
   # 32자 이상의 임의의 문자열 권장
-  secret: ${JWT_SECRET:DefaultsToARandomLongSecretKeyForDevelopmentPurposesOnly123456}
+  secret: ${JWT_SECRET:}
 
 # CORS 설정
 # 운영 환경에서는 실제 프론트엔드 도메인만 허용

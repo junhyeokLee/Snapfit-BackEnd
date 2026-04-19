@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.util.List;
 import java.util.UUID;
@@ -280,13 +281,9 @@ public class AlbumService {
                 .invitedBy(ownerId)
                 .inviteToken(token)
                 .build();
-        AlbumMemberEntity saved = albumMemberRepository.save(member);
-        try {
-            pushNotificationService.notifyInviteCreated(album.getId(), album.getTitle(), token);
-        } catch (Exception e) {
-            // 알림 실패는 핵심 비즈니스 로직을 막지 않음
-        }
-        return saved;
+        // 링크 기반 초대는 수신 대상을 서버가 특정할 수 없으므로
+        // 글로벌 토픽 브로드캐스트 푸시는 발송하지 않는다.
+        return albumMemberRepository.save(member);
     }
 
     @Transactional(readOnly = true)
@@ -387,7 +384,14 @@ public class AlbumService {
      */
     @Transactional
     public void deleteAlbum(Long albumId, String userId) {
-        AlbumEntity album = getAlbum(albumId, userId); // 소유자 검증 포함
+        AlbumEntity album = albumRepository.findById(albumId).orElse(null);
+        // 멱등 삭제: 이미 삭제된 앨범은 성공으로 간주
+        if (album == null) {
+            return;
+        }
+        if (!album.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("해당 앨범에 대한 권한이 없습니다.");
+        }
 
         // 1) 삭제 전에 이 앨범이 참조하는 모든 이미지 URL 수집
         List<AlbumPageEntity> pages = albumPageRepository.findByAlbumId(albumId);
@@ -409,10 +413,19 @@ public class AlbumService {
             extractUrlsFromJson(page.getLayersJson(), urls);
         }
 
-        // 2) 앨범/페이지 레코드 삭제 (cascade)
-        albumRepository.delete(album);
+        // 2) 앨범 멤버/초대 레코드 정리 후 앨범/페이지 레코드 삭제
+        albumMemberRepository.deleteByAlbumId(albumId);
 
-        // 3) 실제 스토리지에서 삭제: 더 이상 어떤 앨범/페이지에서도 사용하지 않는 URL만 삭제
+        // 3) 앨범/페이지 레코드 삭제 (cascade)
+        try {
+            albumRepository.delete(album);
+            albumRepository.flush();
+        } catch (ObjectOptimisticLockingFailureException e) {
+            // 동시/중복 삭제 충돌은 이미 삭제된 상태로 간주
+            return;
+        }
+
+        // 4) 실제 스토리지에서 삭제: 더 이상 어떤 앨범/페이지에서도 사용하지 않는 URL만 삭제
         for (String url : urls) {
             if (url == null || url.isBlank())
                 continue;
