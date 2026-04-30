@@ -10,6 +10,8 @@ public interface TemplateRepository extends JpaRepository<TemplateEntity, Long> 
     @Query("select t from TemplateEntity t where t.active = true or t.active is null")
     Page<TemplateEntity> findAllActive(Pageable pageable);
 
+    java.util.Optional<TemplateEntity> findFirstByTitleIgnoreCase(String title);
+
     @Query("select count(t) from TemplateEntity t where t.active = true or t.active is null")
     long countActive();
 

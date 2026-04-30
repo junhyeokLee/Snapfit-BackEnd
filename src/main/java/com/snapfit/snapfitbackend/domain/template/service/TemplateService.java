@@ -48,11 +48,12 @@ public class TemplateService {
                 .filter(this::isActive)
                 .sorted(this::compareTemplateRanking)
                 .map(entity -> {
+                    int syncedLikeCount = syncLikeCount(entity);
                     boolean isLiked = false;
                     if (userId != null && !userId.isEmpty()) {
                         isLiked = templateLikeRepository.existsByTemplateIdAndUserId(entity.getId(), userId);
                     }
-                    return convertToResponse(entity, isLiked);
+                    return convertToResponse(entity, isLiked, syncedLikeCount);
                 })
                 .collect(Collectors.toList());
     }
@@ -74,6 +75,7 @@ public class TemplateService {
         Page<TemplateEntity> templatePage = templateRepository.findAllActive(pageable);
         List<TemplateSummaryResponse> content = templatePage.getContent().stream()
                 .map(entity -> {
+                    int syncedLikeCount = syncLikeCount(entity);
                     boolean isLiked = false;
                     if (userId != null && !userId.isEmpty()) {
                         isLiked = templateLikeRepository.existsByTemplateIdAndUserId(entity.getId(), userId);
@@ -85,7 +87,7 @@ public class TemplateService {
                             entity.getCoverImageUrl(),
                             parseJsonArray(entity.getTagsJson()),
                             entity.getWeeklyScore() == null ? 0 : entity.getWeeklyScore(),
-                            entity.getLikeCount(),
+                            syncedLikeCount,
                             entity.getUserCount(),
                             entity.isPremium(),
                             entity.isBest(),
@@ -116,7 +118,8 @@ public class TemplateService {
         if (userId != null && !userId.isEmpty()) {
             isLiked = templateLikeRepository.existsByTemplateIdAndUserId(id, userId);
         }
-        return convertToResponse(template, isLiked);
+        int syncedLikeCount = syncLikeCount(template);
+        return convertToResponse(template, isLiked, syncedLikeCount);
     }
 
     @Transactional
@@ -129,15 +132,14 @@ public class TemplateService {
         if (existingLike.isPresent()) {
             // Unlike
             templateLikeRepository.delete(existingLike.get());
-            template.setLikeCount(Math.max(0, template.getLikeCount() - 1));
         } else {
             // Like
             templateLikeRepository.save(TemplateLikeEntity.builder()
                     .templateId(id)
                     .userId(userId)
                     .build());
-            template.setLikeCount(template.getLikeCount() + 1);
         }
+        template.setLikeCount((int) templateLikeRepository.countByTemplateId(id));
         templateRepository.save(template);
     }
 
@@ -210,12 +212,16 @@ public class TemplateService {
     @Transactional
     public TemplateEntity upsertTemplateFromAdmin(TemplateEntity input) {
         validateTemplateInput(input);
-        final boolean isCreate = input.getId() == null;
-        TemplateEntity target;
-        if (!isCreate) {
-            target = templateRepository.findById(input.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Template not found: " + input.getId()));
-        } else {
+        TemplateEntity target = null;
+        if (input.getId() != null) {
+            target = templateRepository.findById(input.getId()).orElse(null);
+        }
+        if (target == null && input.getTitle() != null && !input.getTitle().trim().isEmpty()) {
+            target = templateRepository.findFirstByTitleIgnoreCase(input.getTitle().trim()).orElse(null);
+        }
+
+        final boolean isCreate = target == null;
+        if (target == null) {
             target = new TemplateEntity();
         }
 
@@ -399,7 +405,7 @@ public class TemplateService {
         row.put("coverImageUrl", t.getCoverImageUrl());
         row.put("previewImagesJson", t.getPreviewImagesJson());
         row.put("pageCount", t.getPageCount());
-        row.put("likeCount", t.getLikeCount());
+        row.put("likeCount", syncLikeCount(t));
         row.put("userCount", t.getUserCount());
         row.put("isBest", t.isBest());
         row.put("isPremium", t.isPremium());
@@ -528,12 +534,21 @@ public class TemplateService {
         }
     }
 
-    private TemplateResponse convertToResponse(TemplateEntity entity, boolean isLiked) {
+    private TemplateResponse convertToResponse(TemplateEntity entity, boolean isLiked, int syncedLikeCount) {
         List<String> previewImages = parseJsonArray(entity.getPreviewImagesJson());
         List<String> tags = parseJsonArray(entity.getTagsJson());
 
         boolean isNew = entity.getNewUntil() != null && entity.getNewUntil().isAfter(LocalDateTime.now());
-        return TemplateResponse.from(entity, previewImages, tags, isLiked, isNew);
+        return TemplateResponse.from(entity, previewImages, tags, isLiked, isNew, syncedLikeCount);
+    }
+
+    private int syncLikeCount(TemplateEntity entity) {
+        int actual = (int) templateLikeRepository.countByTemplateId(entity.getId());
+        if (entity.getLikeCount() != actual) {
+            entity.setLikeCount(actual);
+            templateRepository.save(entity);
+        }
+        return actual;
     }
 
     private List<String> parseJsonArray(String raw) {

@@ -43,7 +43,8 @@ public class TemplateResponse {
             List<String> previewImages,
             List<String> tags,
             boolean isLiked,
-            boolean isNew) {
+            boolean isNew,
+            int likeCount) {
         return TemplateResponse.builder()
                 .id(entity.getId())
                 .title(entity.getTitle())
@@ -52,7 +53,7 @@ public class TemplateResponse {
                 .coverImageUrl(entity.getCoverImageUrl())
                 .previewImages(previewImages)
                 .pageCount(entity.getPageCount())
-                .likeCount(entity.getLikeCount())
+                .likeCount(likeCount)
                 .userCount(entity.getUserCount())
                 .category(entity.getCategory())
                 .tags(tags)

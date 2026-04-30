@@ -57,7 +57,6 @@ public class NotificationInboxService {
     @Transactional(readOnly = true)
     public List<UserNotificationResponse> getInbox(String userId, int limit) {
         validateUserId(userId);
-        purgeExpiredNotifications();
 
         int safeLimit = Math.min(Math.max(limit, 1), 100);
         List<NotificationInboxEntity> all = notificationInboxRepository
@@ -144,7 +143,6 @@ public class NotificationInboxService {
     @Transactional(readOnly = true)
     public long unreadCount(String userId) {
         validateUserId(userId);
-        purgeExpiredNotifications();
 
         List<NotificationInboxEntity> latest = notificationInboxRepository
                 .findTop200ByCreatedAtAfterOrderByCreatedAtDesc(retentionCutoff());

@@ -59,6 +59,7 @@ class TemplateServiceTest {
         when(templateRepository.findById(1L)).thenReturn(Optional.of(template));
         when(templateLikeRepository.findByTemplateIdAndUserId(1L, "user-1"))
                 .thenReturn(Optional.of(TemplateLikeEntity.builder().templateId(1L).userId("user-1").build()));
+        when(templateLikeRepository.countByTemplateId(1L)).thenReturn(1L);
 
         templateService.likeTemplate(1L, "user-1");
 
@@ -126,6 +127,7 @@ class TemplateServiceTest {
 
         when(templateRepository.findAll()).thenReturn(List.of(template));
         when(templateLikeRepository.existsByTemplateIdAndUserId(1L, "user-1")).thenReturn(true);
+        when(templateLikeRepository.countByTemplateId(1L)).thenReturn(0L);
 
         var responses = templateService.getAllTemplates("user-1");
 

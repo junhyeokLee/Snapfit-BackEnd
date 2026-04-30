@@ -249,8 +249,7 @@ erDiagram
 
 ### 5.1 업서트
 
-- `POST /api/templates/admin/upsert`
-- 대체 경로: `POST /api/admin/templates/upsert`
+- `POST /api/admin/templates/upsert`
 
 용도:
 
@@ -272,8 +271,7 @@ erDiagram
 
 ### 5.2 활성/비활성
 
-- `POST /api/templates/admin/{id}/active`
-- 대체 경로: `POST /api/admin/templates/{id}/active`
+- `POST /api/admin/templates/{id}/active`
 
 용도:
 

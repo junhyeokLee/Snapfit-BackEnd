@@ -8,7 +8,7 @@
 
 - Backend `SNAPFIT_ORDER_ADMIN_KEY` 또는 관리자 콘솔 기본 키가 준비되어 있어야 한다.
 - Flutter 앱에서 QA 버튼을 보려면 `--dart-define=ORDER_ADMIN_KEY=...`를 함께 넣어 실행한다.
-- 관리자 콘솔은 `/admin/index.html` 또는 `/admin/v2.html`에서 주문 탭을 사용한다.
+- 관리자 콘솔은 `/admin/index.html`에서 주문 탭을 사용한다.
 
 ## User Flow
 

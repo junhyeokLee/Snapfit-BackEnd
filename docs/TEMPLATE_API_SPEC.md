@@ -129,8 +129,7 @@ Body:
 
 ### 2.1 업서트
 
-- `POST /api/templates/admin/upsert`
-- 대체 경로: `POST /api/admin/templates/upsert`
+- `POST /api/admin/templates/upsert`
 
 필수 body 필드:
 - `title`
@@ -155,8 +154,7 @@ Body:
 
 ### 2.2 관리자 페이지 목록
 
-- `GET /api/templates/admin/paged`
-- 대체 경로: `GET /admin/templates/paged`
+- `GET /api/admin/templates/paged`
 
 Query:
 - `page`
@@ -167,8 +165,7 @@ Query:
 
 ### 2.3 관리자 상세
 
-- `GET /api/templates/admin/{id}`
-- 대체 경로: `GET /admin/templates/{id}`
+- `GET /api/admin/templates/{id}`
 
 ### 2.4 초안 검증
 
@@ -188,8 +185,7 @@ Query:
 
 ### 2.5 활성/비활성
 
-- `POST /api/templates/admin/{id}/active`
-- 대체 경로: `POST /admin/templates/{id}/active`
+- `POST /api/admin/templates/{id}/active`
 
 Body:
 ```json

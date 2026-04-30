@@ -94,7 +94,6 @@ class AlbumControllerTest {
                 .build();
 
         when(albumService.getAlbumsByUserId("user-1")).thenReturn(List.of(album));
-        when(albumService.getAlbumLockerName(1L)).thenReturn("테스터");
         when(albumService.getAlbumLocker(1L)).thenReturn("7");
 
         mockMvc.perform(get("/api/albums")
@@ -102,7 +101,6 @@ class AlbumControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].albumId").value(1))
                 .andExpect(jsonPath("$[0].title").value("Album A"))
-                .andExpect(jsonPath("$[0].lockedBy").value("테스터"))
                 .andExpect(jsonPath("$[0].lockedById").value("7"));
     }
 

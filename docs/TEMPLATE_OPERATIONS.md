@@ -28,7 +28,7 @@ Template API is server-driven. Store ranking and badges should come from backend
 - `minimal`
 
 ## 4) Admin Upsert API
-- Endpoint: `POST /api/templates/admin/upsert`
+- Endpoint: `POST /api/admin/templates/upsert`
 - Auth: `X-Admin-Key` header (`SNAPFIT_PUSH_ADMIN_KEY`)
 - Validations:
   - title required

@@ -43,7 +43,7 @@ public class TemplateDataLoader implements CommandLineRunner {
         List<TemplateEntity> toSave = new ArrayList<>();
         int created = 0;
         int updated = 0;
-        int deactivated = deactivateRemovedTemplates(current, toSave, seedTemplates);
+        int deactivated = deactivateRemovedTemplates(current, toSave);
 
         for (TemplateEntity seed : seedTemplates) {
             if (isRemovedTemplateTitle(seed.getTitle())) {
@@ -69,18 +69,11 @@ public class TemplateDataLoader implements CommandLineRunner {
         log.info("Template seed sync complete. created={}, updated={}, deactivated={}, total={}", created, updated, deactivated, current.size() + created);
     }
 
-    private int deactivateRemovedTemplates(List<TemplateEntity> current, List<TemplateEntity> toSave, List<TemplateEntity> seedTemplates) {
+    private int deactivateRemovedTemplates(List<TemplateEntity> current, List<TemplateEntity> toSave) {
         int deactivated = 0;
-        List<String> allowedTitles = seedTemplates.stream()
-                .map(TemplateEntity::getTitle)
-                .filter(title -> title != null && !title.isBlank())
-                .map(this::normalizeTitle)
-                .toList();
         for (TemplateEntity item : current) {
-            String normalized = normalizeTitle(item.getTitle());
-            boolean notInSeedSet = !allowedTitles.contains(normalized);
             boolean removedByRule = isRemovedTemplateTitle(item.getTitle());
-            if (!notInSeedSet && !removedByRule) continue;
+            if (!removedByRule) continue;
             if (Boolean.FALSE.equals(item.getActive())) {
                 continue;
             }
@@ -151,22 +144,40 @@ public class TemplateDataLoader implements CommandLineRunner {
         List<TemplateEntity> list = new ArrayList<>();
 
         list.add(buildTemplate(
-                "여름 포스터 커버",
-                "실제 배경 사진 + 포스터 타이포 중심의 선명한 여름 무드",
-                "커버 포함 20페이지, 여름 시즌 톤의 풀블리드 이미지 템플릿",
-                "포스터", 20, 1240, 312, true, true, 980, now.plusDays(14), SAMPLE_IMAGES_SUMMER_POSTER, "summer_poster"));
+                "SAVE THE DATE",
+                "결혼을 알리는 가장 클래식한 세이브 더 데이트 무드",
+                "커버 포함 20페이지, 웨딩 포토와 타이포 중심의 에디토리얼 템플릿",
+                "웨딩", 20, 1240, 312, true, true, 980, now.plusDays(14), SAMPLE_IMAGES_SIGNATURE_WEDDING, "signature_wedding"));
 
         list.add(buildTemplate(
-                "어린이 북클럽",
-                "북포스터 감성의 에디토리얼 템플릿",
-                "커버 포함 20페이지, 딥블루/크림 톤과 북클럽 감성 페이지 구성",
-                "키즈", 20, 1030, 266, true, true, 960, now.plusDays(14), SAMPLE_IMAGES_KIDS_BOOKCLUB, "kids_club"));
+                "제주의 기록",
+                "제주 여행의 색감과 공기를 담은 트래블 템플릿",
+                "커버 포함 20페이지, 여행 사진 중심의 여백감 있는 기록형 템플릿",
+                "여행", 20, 1030, 266, true, true, 960, now.plusDays(14), SAMPLE_IMAGES_SUMMER_POSTER, "travel"));
 
         list.add(buildTemplate(
-                "시그니처 웨딩",
-                "풀배경 사진 + 타이포 중심의 청첩장 무드 템플릿",
-                "커버 포함 20페이지, 웨딩 포토의 무드와 텍스트 중심 디자인",
-                "웨딩", 20, 1105, 294, true, true, 970, now.plusDays(14), SAMPLE_IMAGES_SIGNATURE_WEDDING, "signature_wedding"));
+                "가족의 주말",
+                "도시와 일상 속 가족의 순간을 담는 패밀리 템플릿",
+                "커버 포함 20페이지, 가족 사진과 메모를 함께 담는 따뜻한 레이아웃",
+                "가족", 20, 1105, 294, true, true, 970, now.plusDays(14), SAMPLE_IMAGES_KIDS_BOOKCLUB, "family"));
+
+        list.add(buildTemplate(
+                "우리의 기념일",
+                "기념일의 감정을 담은 커플 에디토리얼 템플릿",
+                "커버 포함 20페이지, 커플 사진과 짧은 문장을 섬세하게 배치한 구성",
+                "커플", 20, 980, 241, false, true, 930, now.plusDays(14), SAMPLE_IMAGES_SIGNATURE_WEDDING, "couple"));
+
+        list.add(buildTemplate(
+                "Wedding Editorial",
+                "화보처럼 정제된 웨딩 무드를 담는 에디토리얼 템플릿",
+                "커버 포함 20페이지, 큰 이미지와 절제된 타이포가 중심인 프리미엄 구성",
+                "웨딩", 20, 1180, 305, true, true, 975, now.plusDays(14), SAMPLE_IMAGES_SIGNATURE_WEDDING, "signature_wedding"));
+
+        list.add(buildTemplate(
+                "Scrapbook",
+                "메모와 사진을 자유롭게 엮는 스크랩북 스타일 템플릿",
+                "커버 포함 20페이지, 손으로 붙인 듯한 콜라주 감성의 기록형 템플릿",
+                "라이프", 20, 960, 228, false, true, 920, now.plusDays(14), SAMPLE_IMAGES_SUMMER_POSTER, "minimal"));
 
         return list;
     }
@@ -190,10 +201,12 @@ public class TemplateDataLoader implements CommandLineRunner {
                 "ringmoment",
                 "링트립스토리",
                 "오션브리즈",
-                "familyweekend",
                 "빛나는졸업장",
                 "retrocitytour",
-                "우리들의여름제주"
+                "우리들의여름제주",
+                "여름포스터커버",
+                "어린이북클럽",
+                "시그니처웨딩"
         );
         for (String keyword : blocked) {
             if (normalized.contains(keyword)) {

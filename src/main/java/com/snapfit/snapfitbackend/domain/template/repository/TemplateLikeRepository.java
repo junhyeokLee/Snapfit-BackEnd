@@ -12,6 +12,8 @@ public interface TemplateLikeRepository extends JpaRepository<TemplateLikeEntity
 
     boolean existsByTemplateIdAndUserId(Long templateId, String userId);
 
+    long countByTemplateId(Long templateId);
+
     long deleteByUserId(String userId);
 
     long deleteByTemplateId(Long templateId);

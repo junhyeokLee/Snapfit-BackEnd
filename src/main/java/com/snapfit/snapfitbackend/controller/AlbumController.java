@@ -83,7 +83,9 @@ public class AlbumController {
                         @RequestParam String userId) {
                 List<AlbumEntity> albums = albumService.getAlbumsByUserId(userId);
                 List<AlbumListResponse> response = albums.stream()
-                                .map(a -> AlbumListResponse.builder()
+                                .map(a -> {
+                                        String lockedById = albumService.getAlbumLocker(a.getId());
+                                        return AlbumListResponse.builder()
                                                 .albumId(a.getId())
                                                 .ratio(a.getRatio())
                                                 .title(a.getTitle()) // 앨범 제목
@@ -93,11 +95,11 @@ public class AlbumController {
                                                 .coverImageUrl(a.getCoverImageUrl())
                                                 .totalPages(a.getTotalPages())
                                                 .targetPages(a.getTargetPages())
-                                                .lockedBy(albumService.getAlbumLockerName(a.getId()))
-                                                .lockedById(albumService.getAlbumLocker(a.getId()))
+                                                .lockedById(lockedById)
                                                 .createdAt(a.getCreatedAt())
                                                 .updatedAt(a.getUpdatedAt())
-                                                .build())
+                                                .build();
+                                })
                                 .collect(Collectors.toList());
                 return ResponseEntity.ok(response);
         }

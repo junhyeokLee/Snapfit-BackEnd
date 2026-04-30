@@ -6,12 +6,10 @@ import com.snapfit.snapfitbackend.domain.template.dto.response.TemplateSummaryPa
 import com.snapfit.snapfitbackend.domain.template.entity.TemplateEntity;
 import com.snapfit.snapfitbackend.domain.template.service.TemplateService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/templates")
@@ -19,8 +17,6 @@ import java.util.Map;
 public class TemplateController {
 
     private final TemplateService templateService;
-    @Value("${snapfit.push.admin-key:}")
-    private String adminKey;
 
     @GetMapping
     public ResponseEntity<List<TemplateResponse>> getAllTemplates(@RequestParam(required = false) String userId) {
@@ -68,57 +64,6 @@ public class TemplateController {
             @RequestBody(required = false) java.util.Map<String, String> replacements) {
         AlbumEntity album = templateService.createAlbumFromTemplate(id, userId, replacements);
         return ResponseEntity.ok(album);
-    }
-
-    @PostMapping("/admin/upsert")
-    public ResponseEntity<?> upsertTemplate(
-            @RequestHeader(value = "X-Admin-Key", required = false) String requestAdminKey,
-            @RequestBody TemplateUpsertRequest request) {
-        ensureTemplateAdmin(requestAdminKey);
-        TemplateEntity saved = templateService.upsertTemplateFromAdmin(request.toEntity());
-        return ResponseEntity.ok(Map.of("id", saved.getId()));
-    }
-
-    @GetMapping("/admin/paged")
-    public ResponseEntity<?> adminTemplatePaged(
-            @RequestHeader(value = "X-Admin-Key", required = false) String requestAdminKey,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        ensureTemplateAdmin(requestAdminKey);
-        return ResponseEntity.ok(templateService.getAdminTemplatePage(page, size));
-    }
-
-    @GetMapping("/admin/{id}")
-    public ResponseEntity<?> adminTemplateDetail(
-            @RequestHeader(value = "X-Admin-Key", required = false) String requestAdminKey,
-            @PathVariable Long id
-    ) {
-        ensureTemplateAdmin(requestAdminKey);
-        return ResponseEntity.ok(templateService.getAdminTemplateDetail(id));
-    }
-
-    @PostMapping("/admin/{id}/active")
-    public ResponseEntity<?> setTemplateActive(
-            @RequestHeader(value = "X-Admin-Key", required = false) String requestAdminKey,
-            @PathVariable Long id,
-            @RequestBody ActiveToggleRequest request
-    ) {
-        ensureTemplateAdmin(requestAdminKey);
-        return ResponseEntity.ok(templateService.setTemplateActive(id, request.active));
-    }
-
-    private void ensureTemplateAdmin(String requestAdminKey) {
-        if (adminKey == null || adminKey.isBlank() || !adminKey.equals(requestAdminKey)) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.FORBIDDEN,
-                    "forbidden");
-        }
-    }
-
-    @lombok.Data
-    public static class ActiveToggleRequest {
-        private boolean active;
     }
 
     @lombok.Data
