@@ -85,13 +85,12 @@ class TemplateServiceTest {
                 .title("Template A")
                 .pageCount(2)
                 .coverImageUrl("cover-url")
-                .isPremium(true)
+                .isPremium(false)
                 .templateJson(json)
                 .userCount(0)
                 .build();
 
         when(templateRepository.findById(5L)).thenReturn(Optional.of(template));
-        when(billingService.hasActiveSubscription("user-1")).thenReturn(true);
         when(albumService.createAlbum(
                 eq("user-1"),
                 eq("3:4"),

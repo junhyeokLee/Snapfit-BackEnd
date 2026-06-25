@@ -48,12 +48,12 @@ public class TemplateService {
                 .filter(this::isActive)
                 .sorted(this::compareTemplateRanking)
                 .map(entity -> {
-                    int syncedLikeCount = syncLikeCount(entity);
+                    int likeCount = currentLikeCount(entity);
                     boolean isLiked = false;
                     if (userId != null && !userId.isEmpty()) {
                         isLiked = templateLikeRepository.existsByTemplateIdAndUserId(entity.getId(), userId);
                     }
-                    return convertToResponse(entity, isLiked, syncedLikeCount);
+                    return convertToResponse(entity, isLiked, likeCount);
                 })
                 .collect(Collectors.toList());
     }
@@ -75,7 +75,7 @@ public class TemplateService {
         Page<TemplateEntity> templatePage = templateRepository.findAllActive(pageable);
         List<TemplateSummaryResponse> content = templatePage.getContent().stream()
                 .map(entity -> {
-                    int syncedLikeCount = syncLikeCount(entity);
+                    int likeCount = currentLikeCount(entity);
                     boolean isLiked = false;
                     if (userId != null && !userId.isEmpty()) {
                         isLiked = templateLikeRepository.existsByTemplateIdAndUserId(entity.getId(), userId);
@@ -87,7 +87,7 @@ public class TemplateService {
                             entity.getCoverImageUrl(),
                             parseJsonArray(entity.getTagsJson()),
                             entity.getWeeklyScore() == null ? 0 : entity.getWeeklyScore(),
-                            syncedLikeCount,
+                            likeCount,
                             entity.getUserCount(),
                             entity.isPremium(),
                             entity.isBest(),
@@ -118,8 +118,8 @@ public class TemplateService {
         if (userId != null && !userId.isEmpty()) {
             isLiked = templateLikeRepository.existsByTemplateIdAndUserId(id, userId);
         }
-        int syncedLikeCount = syncLikeCount(template);
-        return convertToResponse(template, isLiked, syncedLikeCount);
+        int likeCount = currentLikeCount(template);
+        return convertToResponse(template, isLiked, likeCount);
     }
 
     @Transactional
@@ -151,10 +151,6 @@ public class TemplateService {
         if (!isActive(template)) {
             throw new IllegalArgumentException("Template is inactive: " + templateId);
         }
-        if (template.isPremium() && !billingService.hasActiveSubscription(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Premium template requires active subscription");
-        }
-
         // 1. Parse templateJson to extract album structure
         JsonNode root;
         try {
@@ -405,7 +401,7 @@ public class TemplateService {
         row.put("coverImageUrl", t.getCoverImageUrl());
         row.put("previewImagesJson", t.getPreviewImagesJson());
         row.put("pageCount", t.getPageCount());
-        row.put("likeCount", syncLikeCount(t));
+        row.put("likeCount", currentLikeCount(t));
         row.put("userCount", t.getUserCount());
         row.put("isBest", t.isBest());
         row.put("isPremium", t.isPremium());
@@ -542,13 +538,8 @@ public class TemplateService {
         return TemplateResponse.from(entity, previewImages, tags, isLiked, isNew, syncedLikeCount);
     }
 
-    private int syncLikeCount(TemplateEntity entity) {
-        int actual = (int) templateLikeRepository.countByTemplateId(entity.getId());
-        if (entity.getLikeCount() != actual) {
-            entity.setLikeCount(actual);
-            templateRepository.save(entity);
-        }
-        return actual;
+    private int currentLikeCount(TemplateEntity entity) {
+        return Math.max(0, entity.getLikeCount());
     }
 
     private List<String> parseJsonArray(String raw) {
